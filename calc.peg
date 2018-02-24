@@ -1,0 +1,53 @@
+{
+  // This is a Parsing Expression Grammar (PEG) for a simple calculator.
+  // Generate the .go file with '$GOPATH/bin/pigeon $GOPATH/src/calc/calc.peg | $GOPATH/bin/goimports > $GOPATH/src/calc/peg.go'
+  // This block is the initializer
+
+  package main
+
+  import (
+    "math/big"
+  )
+}
+
+Input "input" <- n:Expr EOF {
+  return n, nil
+}
+
+Expr "expression" <- _ n:(ComplexExpr / Paren) _ {
+  return n, nil
+}
+
+ComplexExpr "complex expression" <- num:Paren _ op:Op _ expr:Expr {
+
+  o := rune(op.([]uint8)[0])
+  return eval(o, num, expr)
+}
+
+Paren <- '(' e:Expr ')' {
+  return e, nil
+} / n:Number {
+  return n, nil
+}
+
+Number <- n:(Float / Int) {
+  return n, nil
+}
+
+Float "float" <- [0-9]* '.' [0-9]+ {
+  f := new(big.Float)
+  _, err := fmt.Sscan(string(c.text), f)
+  return f, err
+}
+
+Int "int" <- [0-9]+ {
+  i := new(big.Int)
+  _, err := fmt.Sscan(string(c.text), i)
+  return i, err
+}
+
+Op <- '+' / '-'
+
+_ "spaces" <- [ \t]*
+
+EOF <- !.

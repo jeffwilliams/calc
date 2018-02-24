@@ -1,0 +1,19 @@
+package main
+
+import "github.com/cheekybits/genny/generic"
+
+type Number generic.Type
+
+func evalNumber(op rune, a, b *Number) (r *Number, err error) {
+	switch op {
+	case '+':
+		r = a.Add(a, b)
+	case '-':
+		r = a.Sub(a, b)
+	default:
+		err = fmt.Errorf("eval: Invalid operator %s", op)
+	}
+	return
+}
+
+/* vim: set filetype=go :*/
