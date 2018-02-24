@@ -258,6 +258,17 @@ func TestCalc(t *testing.T) {
 			input:  "20-(5.0+(5-1-(1.0)))",
 			output: big.NewFloat(12.0),
 		},
+
+		{
+			name:   "mul_div_int",
+			input:  "5*4/10",
+			output: big.NewInt(2),
+		},
+		{
+			name:   "mul_div_flt",
+			input:  "5.0*4.0/10.0",
+			output: big.NewFloat(2),
+		},
 	}
 
 	for _, tc := range tests {

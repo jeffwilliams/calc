@@ -10,6 +10,10 @@ func evalNumber(op rune, a, b *Number) (r *Number, err error) {
 		r = a.Add(a, b)
 	case '-':
 		r = a.Sub(a, b)
+	case '*':
+		r = a.Mul(a, b)
+	case '/':
+		r = a.Quo(a, b)
 	default:
 		err = fmt.Errorf("eval: Invalid operator %s", op)
 	}
