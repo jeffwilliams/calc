@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"github.com/chzyer/readline"
 	"math/big"
 	"os"
 )
@@ -41,17 +41,24 @@ func eval(op rune, a, b interface{}) (r interface{}, err error) {
 }
 
 func main() {
-	parsed, err := Parse("canned", []byte("5 + 6"))
+
+	rl, err := readline.New("> ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: loading readline failed: %v\n", err)
+		return
 	}
-	fmt.Println(parsed)
 
-	in := bufio.NewScanner(os.Stdin)
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			if err == readline.ErrInterrupt {
+				break
+			}
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			continue
+		}
 
-	for in.Scan() {
-		//parsed, err := Parse("last line", in.Bytes(), Debug(true))
-		parsed, err := Parse("last line", in.Bytes())
+		parsed, err := Parse("last line", []byte(line))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
