@@ -228,20 +228,35 @@ func TestCalc(t *testing.T) {
 			output: big.NewInt(0),
 		},
 		{
-			name:   "add_sub_ints_paren_space",
+			name:   "add_sub_ints_paren_space3",
 			input:  " (1+  2) -3",
 			output: big.NewInt(0),
 		},
 
 		{
-			name:   "add_sub_ints_paren_next",
+			name:   "add_sub_ints_paren_next1",
 			input:  "5-(3+1)",
 			output: big.NewInt(1),
 		},
 		{
-			name:   "add_sub_ints_paren_next",
+			name:   "add_sub_ints_paren_next2",
 			input:  "5-(3+1)+1",
 			output: big.NewInt(2),
+		},
+		{
+			name:   "add_sub_ints_paren_next3",
+			input:  "(5) - (3+1) + (1+1) - 20",
+			output: big.NewInt(-17),
+		},
+		{
+			name:   "add_sub_ints_nested_paren",
+			input:  "20-(5+(5-1-(1)))",
+			output: big.NewInt(12),
+		},
+		{
+			name:   "add_sub_ints_nested_paren_flt",
+			input:  "20-(5.0+(5-1-(1.0)))",
+			output: big.NewFloat(12.0),
 		},
 	}
 

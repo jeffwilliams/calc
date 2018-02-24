@@ -8,6 +8,13 @@
   import (
     "math/big"
   )
+
+	func toIfaceSlice(v interface{}) []interface{} {
+		if v == nil {
+			return nil
+		}
+		return v.([]interface{})
+	}
 }
 
 Input "input" <- n:Expr EOF {
@@ -18,10 +25,23 @@ Expr "expression" <- _ n:(ComplexExpr / Paren) _ {
   return n, nil
 }
 
-ComplexExpr "complex expression" <- num:Paren _ op:Op _ expr:Expr {
+ComplexExpr "complex expression" <- num:Paren rest:(_ Op _ Paren)*  {
 
-  o := rune(op.([]uint8)[0])
-  return eval(o, num, expr)
+	var err error
+
+	acc := num
+	for _, v := range toIfaceSlice(rest) {
+		list := toIfaceSlice(v)
+
+		// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
+		o := rune(list[1].([]uint8)[0])
+		acc, err = eval(o, acc, list[3])
+		if err != nil {
+			return acc, err
+		}
+	}
+
+	return acc, nil
 }
 
 Paren <- '(' e:Expr ')' {
