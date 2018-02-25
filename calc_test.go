@@ -42,6 +42,16 @@ func TestCalc(t *testing.T) {
 			output: big.NewInt(1),
 		},
 		{
+			name:   "single_int_hex",
+			input:  "0xAa",
+			output: big.NewInt(170),
+		},
+		{
+			name:   "single_int_binary",
+			input:  "0b1010",
+			output: big.NewInt(10),
+		},
+		{
 			name:   "single_int_lspace",
 			input:  " 1",
 			output: big.NewInt(1),
@@ -117,6 +127,11 @@ func TestCalc(t *testing.T) {
 			name:   "add_two_ints_manyspace",
 			input:  "  1  +  1  ",
 			output: big.NewInt(2),
+		},
+		{
+			name:   "add_ints_hex_bin",
+			input:  "10+0xa+0b1010",
+			output: big.NewInt(30),
 		},
 
 		{
@@ -268,6 +283,12 @@ func TestCalc(t *testing.T) {
 			name:   "mul_div_flt",
 			input:  "5.0*4.0/10.0",
 			output: big.NewFloat(2),
+		},
+
+		{
+			name:   "order_of_ops",
+			input:  "1+2*3",
+			output: big.NewInt(7),
 		},
 	}
 

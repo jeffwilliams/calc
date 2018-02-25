@@ -60,7 +60,7 @@ Float "float" <- [0-9]* '.' [0-9]+ {
   return f, err
 }
 
-Int "int" <- [0-9]+ {
+Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   i := new(big.Int)
   _, err := fmt.Sscan(string(c.text), i)
   return i, err
@@ -71,3 +71,5 @@ Op <- '+' / '-' / '*' / '/' / '^'
 _ "spaces" <- [ \t]*
 
 EOF <- !.
+
+/* vim: set filetype=go :*/
