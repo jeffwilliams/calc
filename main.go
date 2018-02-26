@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/chzyer/readline"
+	flag "github.com/spf13/pflag"
 	"math/big"
 	"os"
 )
@@ -67,7 +68,11 @@ func evalInt(op rune, a, b *big.Int) (r *big.Int, err error) {
 	return evalbigInt(op, a, b)
 }
 
+var outputBase numberBase = decimalBase
+
 func main() {
+	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
+	flag.Parse()
 
 	rl, err := readline.New("> ")
 	if err != nil {
@@ -89,6 +94,16 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
-		fmt.Println(parsed)
+
+		switch parsed.(type) {
+		case *big.Int:
+			fmt.Println(outputBase.format(parsed.(fmt.Formatter)))
+		case *big.Float:
+			fmt.Printf("%f\n", parsed)
+		default:
+			// Don't print the results of statements
+			//fmt.Println(parsed)
+		}
+
 	}
 }

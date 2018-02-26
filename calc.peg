@@ -39,7 +39,7 @@
 	}	
 }
 
-Input "input" <- n:Expr EOF {
+Input "input" <- n:(Expr / Stmt) EOF {
   return n, nil
 }
 
@@ -47,7 +47,7 @@ Expr "expression" <- _ n:(Prec2Expr / Paren) _ {
   return n, nil
 }
 
-Prec2Expr "complex expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
+Prec2Expr "precedence 2 expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
 	return handleExpr(num, rest)
 }
 
@@ -55,17 +55,17 @@ Prec1Expr "precedence 1 expression" <- num:Prec0Expr rest:(_ Prec1Op _ Prec0Expr
 	return handleExpr(num, rest)
 }
 
-Prec0Expr "precedence 0 (highest prec.) expression" <- num:Paren rest:(_ Prec0Op _ Paren)*  {
+Prec0Expr "precedence 0 expression" <- num:Paren rest:(_ Prec0Op _ Paren)*  {
 	return handleExpr(num, rest)
 }
 
-Paren <- '(' e:Expr ')' {
+Paren "parenthesis expression" <- '(' e:Expr ')' {
   return e, nil
 } / n:Number {
   return n, nil
 }
 
-Number <- n:(Float / Int) {
+Number "number" <- n:(Float / Int) {
   return n, nil
 }
 
@@ -88,5 +88,17 @@ Prec0Op <- '^'
 _ "spaces" <- [ \t]*
 
 EOF <- !.
+
+// Statements 
+Stmt "statement" <- SetStmt {
+	return nil, nil
+}
+
+SetStmt "set statement" <- "obase" _ '=' _ v:( "hex" / "dec" / "bin" ) {
+	err := outputBase.Set(string(v.([]byte)))
+	return nil, err
+}
+
+
 
 /* vim: set filetype=go :*/
