@@ -286,9 +286,24 @@ func TestCalc(t *testing.T) {
 		},
 
 		{
-			name:   "order_of_ops",
+			name:   "order_of_ops_mul",
 			input:  "1+2*3",
 			output: big.NewInt(7),
+		},
+		{
+			name:   "order_of_ops_div",
+			input:  "10 - 10/2 + 2",
+			output: big.NewInt(7),
+		},
+		{
+			name:   "order_of_ops_exp",
+			input:  " 2*3 + 3^3 + 4*1",
+			output: big.NewInt(37),
+		},
+		{
+			name:   "order_of_ops_exp_paren",
+			input:  "(2*3 + 3)^2 + 4*1",
+			output: big.NewInt(85),
 		},
 	}
 

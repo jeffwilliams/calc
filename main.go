@@ -46,6 +46,8 @@ func eval(op rune, a, b interface{}) (r interface{}, err error) {
 	}
 }
 
+// evalFloat evaluates the operation between two Floats. For operations that are
+// supported for both Ints and Floats, it uses the shared code generated from eval.genny.
 func evalFloat(op rune, a, b *big.Float) (r *big.Float, err error) {
 	if op == '^' {
 		err = fmt.Errorf("eval: exponentiation is only defined for integer expressions")
@@ -55,6 +57,8 @@ func evalFloat(op rune, a, b *big.Float) (r *big.Float, err error) {
 	return evalbigFloat(op, a, b)
 }
 
+// evalFloat evaluates the operation between two Ints. For operations that are
+// supported for both Ints and Floats, it uses the shared code generated from eval.genny.
 func evalInt(op rune, a, b *big.Int) (r *big.Int, err error) {
 	if op == '^' {
 		r = a.Exp(a, b, nil)

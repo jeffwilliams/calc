@@ -15,33 +15,48 @@
 		}
 		return v.([]interface{})
 	}
+
+
+	// Evaluate the expression for a rule that consists of an operand, operator, 
+	// and expression.
+	func handleExpr(num, rest interface{}) (interface{}, error) {
+		var err error
+
+			acc := num
+			for _, v := range toIfaceSlice(rest) {
+				list := toIfaceSlice(v)
+
+				// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
+				o := rune(list[1].([]uint8)[0])
+				acc, err = eval(o, acc, list[3])
+				if err != nil {
+					return acc, err
+				}
+			}
+
+		return acc, nil
+
+	}	
 }
 
 Input "input" <- n:Expr EOF {
   return n, nil
 }
 
-Expr "expression" <- _ n:(ComplexExpr / Paren) _ {
+Expr "expression" <- _ n:(Prec2Expr / Paren) _ {
   return n, nil
 }
 
-ComplexExpr "complex expression" <- num:Paren rest:(_ Op _ Paren)*  {
+Prec2Expr "complex expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
+	return handleExpr(num, rest)
+}
 
-	var err error
+Prec1Expr "precedence 1 expression" <- num:Prec0Expr rest:(_ Prec1Op _ Prec0Expr)*  {
+	return handleExpr(num, rest)
+}
 
-	acc := num
-	for _, v := range toIfaceSlice(rest) {
-		list := toIfaceSlice(v)
-
-		// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
-		o := rune(list[1].([]uint8)[0])
-		acc, err = eval(o, acc, list[3])
-		if err != nil {
-			return acc, err
-		}
-	}
-
-	return acc, nil
+Prec0Expr "precedence 0 (highest prec.) expression" <- num:Paren rest:(_ Prec0Op _ Paren)*  {
+	return handleExpr(num, rest)
 }
 
 Paren <- '(' e:Expr ')' {
@@ -66,7 +81,9 @@ Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   return i, err
 }
 
-Op <- '+' / '-' / '*' / '/' / '^'
+Prec1Op <- '*' / '/'
+Prec2Op <- '+' / '-' 
+Prec0Op <- '^'
 
 _ "spaces" <- [ \t]*
 
