@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-//go:generate sh -c "$GOPATH/bin/pigeon $GOPATH/src/calc/calc.peg > gen_calc.go"
+//go:generate sh -c "$GOPATH/bin/pigeon calc.peg > gen_calc.go"
 //go:generate $GOPATH/bin/genny -in eval.genny -out gen_eval.go gen "Number=big.Int,big.Float"
 
 // eval evaluates a simple expression of two operands and an operator.
