@@ -100,6 +100,8 @@ func main() {
 			fmt.Println(outputBase.format(parsed.(fmt.Formatter)))
 		case *big.Float:
 			fmt.Printf("%f\n", parsed)
+		case string:
+			fmt.Printf("%s\n", parsed)
 		default:
 			// Don't print the results of statements
 			//fmt.Println(parsed)

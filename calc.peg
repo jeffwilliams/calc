@@ -39,8 +39,13 @@
 	}	
 }
 
-Input "input" <- n:(Expr / Stmt) EOF {
+Input "input" <- n:(Expr / Stmt / Empty) EOF {
   return n, nil
+}
+
+// This is just so that spurious carriage returns don't print errors.
+Empty "empty line" <- _ {
+	return "", nil
 }
 
 Expr "expression" <- _ n:(Prec2Expr / Paren) _ {
