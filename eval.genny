@@ -4,7 +4,7 @@ import "github.com/cheekybits/genny/generic"
 
 type Number generic.Type
 
-func evalNumber(op rune, a, b *Number) (r *Number, err error) {
+func evalBinaryOpNumber(op rune, a, b *Number) (r *Number, err error) {
 	switch op {
 	case '+':
 		r = a.Add(a, b)
@@ -14,6 +14,16 @@ func evalNumber(op rune, a, b *Number) (r *Number, err error) {
 		r = a.Mul(a, b)
 	case '/':
 		r = a.Quo(a, b)
+	default:
+		err = fmt.Errorf("eval: Invalid operator %s", op)
+	}
+	return
+}
+
+func evalUnaryOpNumber(op rune, a *Number) (r *Number, err error) {
+	switch op {
+	case '-':
+		r = a.Neg(a)
 	default:
 		err = fmt.Errorf("eval: Invalid operator %s", op)
 	}

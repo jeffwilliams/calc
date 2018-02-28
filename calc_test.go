@@ -305,6 +305,38 @@ func TestCalc(t *testing.T) {
 			input:  "(2*3 + 3)^2 + 4*1",
 			output: big.NewInt(85),
 		},
+
+		{
+			name:   "bitwise_not",
+			input:  "~1",
+			output: big.NewInt(-2), // Two's compliment
+		},
+		{
+			name:   "bitwise_not_and_and",
+			input:  "7 & (~1)",
+			output: big.NewInt(6),
+		},
+		{
+			name:   "bitwise_not_and_add",
+			input:  "~4 + 5",
+			output: big.NewInt(0),
+		},
+
+		{
+			name:   "unary_negation",
+			input:  "-4",
+			output: big.NewInt(-4),
+		},
+		{
+			name:   "unary_negation_mul_add",
+			input:  "-4*2 + 7",
+			output: big.NewInt(-1),
+		},
+		{
+			name:   "unary_negation_sub",
+			input:  "1--1",
+			output: big.NewInt(2),
+		},
 	}
 
 	for _, tc := range tests {

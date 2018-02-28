@@ -19,23 +19,29 @@
 
 	// Evaluate the expression for a rule that consists of an operand, operator, 
 	// and expression.
-	func handleExpr(num, rest interface{}) (interface{}, error) {
+	func handleBinaryOpExpr(num, rest interface{}) (interface{}, error) {
 		var err error
 
-			acc := num
-			for _, v := range toIfaceSlice(rest) {
-				list := toIfaceSlice(v)
+		acc := num
+		for _, v := range toIfaceSlice(rest) {
+			list := toIfaceSlice(v)
 
-				// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
-				o := rune(list[1].([]uint8)[0])
-				acc, err = eval(o, acc, list[3])
-				if err != nil {
-					return acc, err
-				}
+			// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
+			o := rune(list[1].([]uint8)[0])
+			acc, err = evalBinaryOp(o, acc, list[3])
+			if err != nil {
+				return acc, err
 			}
+		}
 
 		return acc, nil
+	}	
 
+	// Evaluate the expression for a rule that consists of an operator and operand.
+	func handleUnaryOpExpr(op interface{}, num interface{}) (interface{}, error) {
+		o := rune(op.([]uint8)[0])
+
+		return evalUnaryOp(o, num)
 	}	
 }
 
@@ -53,15 +59,23 @@ Expr "expression" <- _ n:(Prec2Expr / Paren) _ {
 }
 
 Prec2Expr "precedence 2 expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
-	return handleExpr(num, rest)
+	return handleBinaryOpExpr(num, rest)
 }
 
 Prec1Expr "precedence 1 expression" <- num:Prec0Expr rest:(_ Prec1Op _ Prec0Expr)*  {
-	return handleExpr(num, rest)
+	return handleBinaryOpExpr(num, rest)
 }
 
-Prec0Expr "precedence 0 expression" <- num:Paren rest:(_ Prec0Op _ Paren)*  {
-	return handleExpr(num, rest)
+Prec0Expr "precedence 0 expression" <- num:( UnaryExpr / Prec0OpExpr ) {
+	return num, nil
+}
+
+UnaryExpr <- op:[~-] num:Paren {
+	return handleUnaryOpExpr(op, num)
+}
+
+Prec0OpExpr "precedence 0 expression" <- num:Paren rest:(_ Prec0Op _ Paren)*  {
+	return handleBinaryOpExpr(num, rest)
 }
 
 Paren "parenthesis expression" <- '(' e:Expr ')' {
@@ -86,9 +100,9 @@ Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   return i, err
 }
 
-Prec1Op <- '*' / '/'
-Prec2Op <- '+' / '-' 
-Prec0Op <- '^'
+Prec1Op <- '*' / '/' / '|'
+Prec2Op <- '+' / '-' / '&'
+Prec0Op <- '^' 
 
 _ "spaces" <- [ \t]*
 
