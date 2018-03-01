@@ -337,6 +337,17 @@ func TestCalc(t *testing.T) {
 			input:  "1--1",
 			output: big.NewInt(2),
 		},
+
+		{
+			name:   "commas_in_numbers_flt",
+			input:  "24,000.00+6,000.00",
+			output: big.NewFloat(30000),
+		},
+		{
+			name:   "commas_in_numbers_int",
+			input:  "24,000+6,000",
+			output: big.NewInt(30000),
+		},
 	}
 
 	for _, tc := range tests {
