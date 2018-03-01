@@ -20,3 +20,7 @@ $(MANAGED_DEPS): Gopkg.toml Gopkg.lock
 .PHONY: test
 test: 
 	go test
+
+# Build for various architectures
+archs:
+	GOARCH=386 GOOS=linux go build -o calc_i386
