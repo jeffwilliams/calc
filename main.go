@@ -2,14 +2,55 @@ package main
 
 import (
 	"fmt"
-	"github.com/chzyer/readline"
-	flag "github.com/spf13/pflag"
+	"io"
 	"math/big"
 	"os"
+
+	"github.com/chzyer/readline"
+	flag "github.com/spf13/pflag"
 )
 
 //go:generate sh -c "$GOPATH/bin/pigeon calc.peg > gen_calc.go"
 //go:generate $GOPATH/bin/genny -in eval.genny -out gen_eval.go gen "Number=big.Int,big.Float"
+
+func upcast(a, b interface{}) (an, bn interface{}, isInt bool) {
+	aint, ok := a.(*big.Int)
+	if ok {
+		bint, ok := b.(*big.Int)
+		if ok {
+			an = aint
+			bn = bint
+			isInt = true
+			return
+		} else {
+			// b is a float. convert a to a float as well.
+			bflt := b.(*big.Float)
+			aflt := big.NewFloat(0).SetInt(aint)
+
+			an = aflt
+			bn = bflt
+			return
+		}
+	} else {
+		// a is a float.
+		aflt := a.(*big.Float)
+		bflt, ok := b.(*big.Float)
+		if ok {
+			an = aflt
+			bn = bflt
+			return
+		} else {
+			// b is an int. convert b to a float as well.
+			bint := b.(*big.Int)
+			bflt := big.NewFloat(0).SetInt(bint)
+
+			an = aflt
+			bn = bflt
+			return
+		}
+	}
+
+}
 
 // evalBinaryOp evaluates a simple expression of two operands and an operator.
 // If both operands are Ints then the result is an Int, but if one of the operands is
@@ -18,31 +59,18 @@ import (
 // portions up to that point may have been calculated using integer arithmetic; this
 // may lead to odd behavior for division.
 func evalBinaryOp(op rune, a, b interface{}) (r interface{}, err error) {
-	aint, ok := a.(*big.Int)
-	if ok {
-		bint, ok := b.(*big.Int)
-		if ok {
-			return evalInt(op, aint, bint)
-		} else {
-			// b is a float. convert a to a float as well.
-			bflt := b.(*big.Float)
-			aflt := big.NewFloat(0).SetInt(aint)
+	a, b, isInt := upcast(a, b)
 
-			return evalFloat(op, aflt, bflt)
-		}
+	if isInt {
+		aint := a.(*big.Int)
+		bint := b.(*big.Int)
+
+		return evalInt(op, aint, bint)
 	} else {
-		// a is a float.
 		aflt := a.(*big.Float)
-		bflt, ok := b.(*big.Float)
-		if ok {
-			return evalFloat(op, aflt, bflt)
-		} else {
-			// b is an int. convert b to a float as well.
-			bint := b.(*big.Int)
-			bflt := big.NewFloat(0).SetInt(bint)
+		bflt := b.(*big.Float)
 
-			return evalFloat(op, aflt, bflt)
-		}
+		return evalFloat(op, aflt, bflt)
 	}
 }
 
@@ -124,6 +152,9 @@ func main() {
 		line, err := rl.Readline()
 		if err != nil {
 			if err == readline.ErrInterrupt {
+				break
+			}
+			if err == io.EOF && !readline.IsTerminal(readline.GetStdin()) {
 				break
 			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)

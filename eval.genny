@@ -15,7 +15,7 @@ func evalBinaryOpNumber(op rune, a, b *Number) (r *Number, err error) {
 	case '/':
 		r = a.Quo(a, b)
 	default:
-		err = fmt.Errorf("eval: Invalid operator %s", op)
+		err = fmt.Errorf("evalBinaryOpNumber: Invalid operator %s", op)
 	}
 	return
 }
@@ -25,7 +25,7 @@ func evalUnaryOpNumber(op rune, a *Number) (r *Number, err error) {
 	case '-':
 		r = a.Neg(a)
 	default:
-		err = fmt.Errorf("eval: Invalid operator %s", op)
+		err = fmt.Errorf("evalUnaryOpNumber: Invalid operator %s", op)
 	}
 	return
 }

@@ -13,4 +13,6 @@
     go install
     go test
 
+# TODO
 
+Add support for decoding IP addresses from hex.

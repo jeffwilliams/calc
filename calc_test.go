@@ -348,6 +348,42 @@ func TestCalc(t *testing.T) {
 			input:  "24,000+6,000",
 			output: big.NewInt(30000),
 		},
+
+		{
+			name:   "function_no_params",
+			input:  "func()",
+			output: big.NewInt(555),
+		},
+		{
+			name:   "function_number_param",
+			input:  "func(5)",
+			output: big.NewInt(555),
+		},
+		{
+			name:   "function_number_param_space",
+			input:  "func( 5 )",
+			output: big.NewInt(555),
+		},
+		{
+			name:   "function_expr_param",
+			input:  "func(5*2/3)",
+			output: big.NewInt(555),
+		},
+		{
+			name:   "function_expr_param_space",
+			input:  "func( 5*2/3 )",
+			output: big.NewInt(555),
+		},
+		{
+			name:   "function_two_params",
+			input:  "func(1,2)",
+			output: big.NewInt(555),
+		},
+		{
+			name:   "function_two_params_space",
+			input:  "func( 1 , 2 )",
+			output: big.NewInt(555),
+		},
 	}
 
 	for _, tc := range tests {

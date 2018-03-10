@@ -55,7 +55,7 @@ Empty "empty line" <- _ {
 	return "", nil
 }
 
-Expr "expression" <- _ n:(Prec2Expr / Paren) _ {
+Expr "expression" <- _ n:(Prec2Expr / FuncCallOrParen) _ {
   return n, nil
 }
 
@@ -71,18 +71,39 @@ Prec0Expr "precedence 0 expression" <- num:( UnaryExpr / Prec0OpExpr ) {
 	return num, nil
 }
 
-UnaryExpr <- op:[~-] num:Paren {
+UnaryExpr <- op:[~-] num:FuncCallOrParen {
 	return handleUnaryOpExpr(op, num)
 }
 
-Prec0OpExpr "precedence 0 expression" <- num:Paren rest:(_ Prec0Op _ Paren)*  {
+Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ FuncCallOrParen)*  {
 	return handleBinaryOpExpr(num, rest)
+}
+
+FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / FuncCall / Number ) {
+	return n, nil
 }
 
 Paren "parenthesis expression" <- '(' e:Expr ')' {
   return e, nil
-} / n:Number {
-  return n, nil
+}
+
+FuncCall "function call" <- [a-z] [a-z0-9-_]* _ parms:FuncParms {
+	return big.NewInt(555), nil
+}
+
+FuncParms "function params" <- '(' first:Expr? ')' / '(' first:Expr rest:( ',' Expr )* ')' {
+	l := []interface{}{}
+	l = append(l, first)
+
+	for i,v := range rest.([]interface{}) {
+		// Ignore commas
+		if i % 2 == 0 {
+			continue
+		}	
+		l = append(l, v)
+	}
+
+	return l, nil
 }
 
 Number "number" <- n:(Float / Int) {
@@ -118,7 +139,5 @@ SetStmt "set statement" <- "obase" _ '=' _ v:( "hex" / "dec" / "bin" ) {
 	err := outputBase.Set(string(v.([]byte)))
 	return nil, err
 }
-
-
 
 /* vim: set filetype=go :*/
