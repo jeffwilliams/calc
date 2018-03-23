@@ -8,6 +8,14 @@ import (
 var smallFloat = big.NewFloat(0.00001)
 
 func numEql(a, b interface{}) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil && b != nil || a != nil && b == nil {
+		return false
+	}
+
 	aint, ok := a.(*big.Int)
 	if ok {
 		bint, ok := b.(*big.Int)
@@ -23,11 +31,21 @@ func numEql(a, b interface{}) bool {
 			// a is a float and b is an int
 			return false
 		}
-		//fmt.Printf("numEql: both is floats: (%v, %v). cmp == %v\n", aflt, bflt, aflt.Cmp(bflt))
 		acpy := big.NewFloat(0).Copy(aflt)
 		return acpy.Sub(aflt, bflt).Abs(acpy).Cmp(smallFloat) < 0
-		//return 0 == aflt.Cmp(bflt)
 	}
+}
+
+func strSliceEql(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestCalc(t *testing.T) {
@@ -337,68 +355,201 @@ func TestCalc(t *testing.T) {
 			input:  "1--1",
 			output: big.NewInt(2),
 		},
-
-		{
-			name:   "commas_in_numbers_flt",
-			input:  "24,000.00+6,000.00",
-			output: big.NewFloat(30000),
-		},
-		{
-			name:   "commas_in_numbers_int",
-			input:  "24,000+6,000",
-			output: big.NewInt(30000),
-		},
-
+		/* commas in numbers is not supported due to ambiguety
+		   with function calls with multiple parameters.
+		   		{
+		   			name:   "commas_in_numbers_flt",
+		   			input:  "24,000.00+6,000.00",
+		   			output: big.NewFloat(30000),
+		   		},
+		   		{
+		   			name:   "commas_in_numbers_int",
+		   			input:  "24,000+6,000",
+		   			output: big.NewInt(30000),
+		   		},
+		*/
 		{
 			name:   "function_no_params",
-			input:  "func()",
+			input:  "funca()",
 			output: big.NewInt(555),
 		},
 		{
 			name:   "function_number_param",
-			input:  "func(5)",
+			input:  "funcb(5)",
 			output: big.NewInt(555),
 		},
 		{
 			name:   "function_number_param_space",
-			input:  "func( 5 )",
+			input:  "funcb( 5 )",
 			output: big.NewInt(555),
 		},
 		{
 			name:   "function_expr_param",
-			input:  "func(5*2/3)",
+			input:  "funcb(5*2/3)",
 			output: big.NewInt(555),
 		},
 		{
 			name:   "function_expr_param_space",
-			input:  "func( 5*2/3 )",
+			input:  "funcb( 5*2/3 )",
 			output: big.NewInt(555),
 		},
 		{
 			name:   "function_two_params",
-			input:  "func(1,2)",
+			input:  "funcc(1,2)",
 			output: big.NewInt(555),
 		},
 		{
 			name:   "function_two_params_space",
-			input:  "func( 1 , 2 )",
+			input:  "funcc( 1 , 2 )",
 			output: big.NewInt(555),
 		},
+		{
+			name:   "function_def",
+			input:  "def f(x,y) 5",
+			output: nil,
+		},
+		{
+			name:   "function_def_one_param",
+			input:  "def f(x) 5",
+			output: nil,
+		},
+		{
+			name:   "function_def_long_param_names",
+			input:  "def func (parmA,parmB) 5+parmA/parmB",
+			output: nil,
+		},
 	}
+
+	fn0 := func() (*big.Int, error) {
+		return big.NewInt(555), nil
+	}
+	fn1 := func(a *big.Int) (*big.Int, error) {
+		return big.NewInt(555), nil
+	}
+	fn2 := func(a, b *big.Int) (*big.Int, error) {
+		return big.NewInt(555), nil
+	}
+
+	RegisterBuiltin("funca", fn0)
+	RegisterBuiltin("funcb", fn1)
+	RegisterBuiltin("funcc", fn2)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			parsed, err := Parse("test", []byte(tc.input))
+			// Uncomment the below to print pigeon debug info
+			//parsed, err := Parse("test", []byte(tc.input), Debug(true))
 
 			if err != nil {
 				t.Fatalf("parsing '%s' failed: %v", tc.input, err)
 			}
 
-			//t.Logf("type: %v", reflect.TypeOf(parsed))
 			if !numEql(parsed, tc.output) {
 				t.Fatalf("expected '%v' (type %T) but got '%v' (type %T)", tc.output, tc.output, parsed, parsed)
 			}
 
 		})
 	}
+}
+
+func firstParseErr(err error) error {
+	return err.(errList)[0].(*parserError).Inner
+}
+
+func TestUndefVarInOtherwiseValidExpr(t *testing.T) {
+	_, err := Parse("test", []byte("1+X"))
+	if err == nil {
+		t.Fatalf("no error when variable unbound")
+	}
+	if len(err.(errList)) > 1 {
+		t.Fatalf("there is more than one error: %v", err)
+	}
+	if err, ok := firstParseErr(err).(ErrUnboundVar); !ok {
+		t.Fatalf("error is not ErrUnboundVar: %v %T", err, err)
+	}
+}
+
+func TestTwoUndefVarInOtherwiseValidExpr(t *testing.T) {
+	_, err := Parse("test", []byte("1+X+y"))
+	if err == nil {
+		t.Fatalf("no error when variable unbound")
+	}
+	if len(err.(errList)) > 2 {
+		t.Fatalf("there is more than two errors: %v", err)
+	}
+	for _, e := range err.(errList) {
+		inner := e.(*parserError).Inner
+		if err, ok := inner.(ErrUnboundVar); !ok {
+			t.Fatalf("one of the errors is not ErrUnboundVar: %v %T", err, err)
+		}
+	}
+}
+
+func TestUndefVarInInvalidExpr(t *testing.T) {
+	_, err := Parse("test", []byte("1-+X"))
+	if err == nil {
+		t.Fatalf("no error when expected")
+	}
+	if _, ok := firstParseErr(err).(ErrUnboundVar); len(err.(errList)) == 1 && ok {
+		t.Fatalf("there is only one error and its the unbound var (parse error was not detected): %v", err)
+	}
+}
+
+func TestFuncDef(t *testing.T) {
+
+	tests := []struct {
+		name       string
+		text       string
+		paramNames []string
+		body       string
+	}{
+		{
+			name:       "no_params",
+			text:       "def fobb () 1",
+			paramNames: []string{},
+			body:       "1",
+		},
+		{
+			name:       "one_params",
+			text:       "def fobb (x) x+1",
+			paramNames: []string{"x"},
+			body:       "x+1",
+		},
+		{
+			name:       "two_params",
+			text:       "def fobb (x,why) x+why+1",
+			paramNames: []string{"x", "why"},
+			body:       "x+why+1",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Uncomment the below to print pigeon debug info
+			//_, err := Parse("test", []byte(tc.text), Debug(true))
+			_, err := Parse("test", []byte(tc.text))
+			if err != nil {
+				t.Fatalf("error when parsing: %v", err)
+			}
+			f, ok := Funcs["fobb"]
+			if !ok {
+				t.Fatalf("function `fobb` didn't get defined")
+			}
+
+			df, ok := f.(*DefinedFunc)
+			if !ok {
+				t.Fatalf("function `fobb` is not a DefinedFunc")
+			}
+
+			if !strSliceEql(df.paramNames, tc.paramNames) {
+				t.Fatalf("function `fobb` has wrong param: expected %v, actual %v ", tc.paramNames, df.paramNames)
+			}
+
+			if string(df.body) != tc.body {
+				t.Fatalf("function `fobb` body is wronghas wrong param: expected %v, actual %v ", tc.body, df.body)
+			}
+
+		})
+	}
+
 }

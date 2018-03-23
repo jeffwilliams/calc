@@ -17,6 +17,26 @@
 		return v.([]interface{})
 	}
 
+	func toStringSlice(v []interface{}) []string {
+    r := make([]string, len(v))
+		for i,e := range v {
+      r[i] = e.(string)
+		}
+		return r
+	}
+
+	func charClassRepetitionToByteSlice(x interface{}) []byte {
+    buf := make([]byte,0,100)
+    for _,v := range x.([]interface{}){
+      buf = append(buf, v.([]byte)...)
+	  }
+		return buf
+	}
+
+	func charClassRepetitionToStr(x interface{}) string {
+	  return string(charClassRepetitionToByteSlice(x))
+	}
+
 
 	// Evaluate the expression for a rule that consists of an operand, operator, 
 	// and expression.
@@ -46,7 +66,7 @@
 	}	
 }
 
-Input "input" <- n:(Expr / Stmt / Empty) EOF {
+Input "input" <- n:(Stmt / Expr / Empty) EOF {
   return n, nil
 }
 
@@ -79,7 +99,7 @@ Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ F
 	return handleBinaryOpExpr(num, rest)
 }
 
-FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / FuncCall / Number ) {
+FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / FuncCall / Number / Variable ) {
 	return n, nil
 }
 
@@ -87,20 +107,25 @@ Paren "parenthesis expression" <- '(' e:Expr ')' {
   return e, nil
 }
 
-FuncCall "function call" <- [a-z] [a-z0-9-_]* _ parms:FuncParms {
-	return big.NewInt(555), nil
+FuncCall "function call" <- name:[a-z]+ _ '(' parms:FuncParms ')' {
+	nm := charClassRepetitionToStr(name)
+	if parms == nil {
+    parms = []interface{}{}
+	}
+  return Call(nm, parms.([]interface{}))
 }
 
-FuncParms "function params" <- '(' first:Expr? ')' / '(' first:Expr rest:( ',' Expr )* ')' {
+FuncParms "function params" <- first:Expr? rest:( ',' Expr )* {
 	l := []interface{}{}
-	l = append(l, first)
+	if first != nil {
+	  l = append(l, first)
+	}
 
-	for i,v := range rest.([]interface{}) {
-		// Ignore commas
-		if i % 2 == 0 {
-			continue
-		}	
-		l = append(l, v)
+	if rest != nil {
+	  for _,v := range rest.([]interface{}) {
+		  // Ignore commas
+		  l = append(l, v.([]interface{})[1])
+	  }
 	}
 
 	return l, nil
@@ -110,16 +135,20 @@ Number "number" <- n:(Float / Int) {
   return n, nil
 }
 
-Float "float" <- [0-9,]* '.' [0-9]+ {
+Float "float" <- [0-9]* '.' [0-9]+ {
   f := new(big.Float)
   _, err := fmt.Sscan(strings.Replace(string(c.text),",","",-1), f)
   return f, err
 }
 
-Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9,]+ ) {
+Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   i := new(big.Int)
   _, err := fmt.Sscan(strings.Replace(string(c.text),",","",-1), i)
   return i, err
+}
+
+Variable <- [a-zA-Z_]+ {
+   return Resolve(string(c.text))
 }
 
 Prec1Op <- '*' / '/' / '|'
@@ -131,13 +160,50 @@ _ "spaces" <- [ \t]*
 EOF <- !.
 
 // Statements 
-Stmt "statement" <- SetStmt {
+Stmt "statement" <- SetStmt / DefStmt {
 	return nil, nil
 }
 
 SetStmt "set statement" <- "obase" _ '=' _ v:( "hex" / "dec" / "bin" ) {
 	err := outputBase.Set(string(v.([]byte)))
 	return nil, err
+}
+
+DefStmt "def statement" <- "def " name:[a-z]+ _ '(' parms:DefStmtParms ')' _ expr:([^,]+) {
+  
+	buf := charClassRepetitionToByteSlice(expr)
+
+  // first try parsing the function's body to see if it's valid.
+  // since the body likely contains variables, we'll expect an 
+	// unbound variable error but no other ones that indicate
+	// a parse error.
+	if err := validateFuncDef(parms.([]interface{}), buf); err != nil { 
+	  return nil, err
+	}
+
+	nm := charClassRepetitionToStr(name)
+	prm := toStringSlice(parms.([]interface{}))
+  RegisterDefined(nm, prm, buf)
+	return nil, nil
+}
+
+DefStmtParms "def stmt params" <- first:[a-zA-Z_]* rest:( ',' [a-zA-Z_]+ )* {
+  
+	l := []interface{}{}
+	if first != nil && len(first.([]interface{})) > 0 {
+	  l = append(l, first)
+	}
+
+	for _,v := range rest.([]interface{}) {
+		// Ignore commas
+		l = append(l, v.([]interface{})[1])
+	}
+
+  for i,v := range l {
+    l[i] = charClassRepetitionToStr(v)
+	}
+
+	return l, nil
 }
 
 /* vim: set filetype=go :*/
