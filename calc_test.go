@@ -495,6 +495,23 @@ func TestUndefVarInInvalidExpr(t *testing.T) {
 	}
 }
 
+func TestSetVar(t *testing.T) {
+	_, err := Parse("test", []byte("baz = 6"))
+	if err != nil {
+		t.Fatalf("error when setting var: %v")
+	}
+
+	v, err := Parse("test", []byte("baz"))
+	if err != nil {
+		t.Fatalf("error when reading var: %v")
+	}
+
+	if !numEql(v, big.NewInt(6)) {
+		t.Fatalf("variable has wrong value: %v", v)
+	}
+
+}
+
 func TestFuncDef(t *testing.T) {
 
 	tests := []struct {

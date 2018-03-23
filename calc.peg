@@ -107,8 +107,8 @@ Paren "parenthesis expression" <- '(' e:Expr ')' {
   return e, nil
 }
 
-FuncCall "function call" <- name:[a-z]+ _ '(' parms:FuncParms ')' {
-	nm := charClassRepetitionToStr(name)
+FuncCall "function call" <- name:Identifier _ '(' parms:FuncParms ')' {
+	nm := name.(string)
 	if parms == nil {
     parms = []interface{}{}
 	}
@@ -147,8 +147,12 @@ Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   return i, err
 }
 
-Variable <- [a-zA-Z_]+ {
-   return Resolve(string(c.text))
+Variable <- id:Identifier {
+   return Resolve(id.(string))
+}
+
+Identifier <- [a-zA-Z_] [a-zA-Z0-9_]* {
+  return string(c.text), nil
 }
 
 Prec1Op <- '*' / '/' / '|'
@@ -160,16 +164,21 @@ _ "spaces" <- [ \t]*
 EOF <- !.
 
 // Statements 
-Stmt "statement" <- SetStmt / DefStmt {
+Stmt "statement" <- SetObaseStmt / SetStmt / DefStmt {
 	return nil, nil
 }
 
-SetStmt "set statement" <- "obase" _ '=' _ v:( "hex" / "dec" / "bin" ) {
+SetObaseStmt "set obase" <- "obase" _ '=' _ v:( "hex" / "dec" / "bin" ) {
 	err := outputBase.Set(string(v.([]byte)))
 	return nil, err
 }
 
-DefStmt "def statement" <- "def " name:[a-z]+ _ '(' parms:DefStmtParms ')' _ expr:([^,]+) {
+SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
+  GlobalVars[id.(string)] = expr
+	return nil, nil
+}
+
+DefStmt "def statement" <- "def " name:Identifier _ '(' parms:DefStmtParms ')' _ expr:([^,]+) {
   
 	buf := charClassRepetitionToByteSlice(expr)
 
@@ -181,26 +190,22 @@ DefStmt "def statement" <- "def " name:[a-z]+ _ '(' parms:DefStmtParms ')' _ exp
 	  return nil, err
 	}
 
-	nm := charClassRepetitionToStr(name)
+	nm := name.(string)
 	prm := toStringSlice(parms.([]interface{}))
   RegisterDefined(nm, prm, buf)
 	return nil, nil
 }
 
-DefStmtParms "def stmt params" <- first:[a-zA-Z_]* rest:( ',' [a-zA-Z_]+ )* {
+DefStmtParms "def stmt params" <- first:Identifier? rest:( ',' Identifier )* {
   
 	l := []interface{}{}
-	if first != nil && len(first.([]interface{})) > 0 {
+	if first != nil && len(first.(string)) > 0 {
 	  l = append(l, first)
 	}
 
 	for _,v := range rest.([]interface{}) {
 		// Ignore commas
 		l = append(l, v.([]interface{})[1])
-	}
-
-  for i,v := range l {
-    l[i] = charClassRepetitionToStr(v)
 	}
 
 	return l, nil
