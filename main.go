@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"math/big"
 	"os"
+	"strings"
 
 	"github.com/chzyer/readline"
 	flag "github.com/spf13/pflag"
@@ -138,9 +140,37 @@ func evalInt(op rune, a, b *big.Int) (r *big.Int, err error) {
 
 var outputBase numberBase = decimalBase
 
+func LoadInitScript() (err error) {
+	path := os.ExpandEnv("$HOME/.calcrc")
+
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	rdr := bufio.NewReader(file)
+	for {
+		line, err := rdr.ReadString('\n')
+		if err != nil {
+			break
+		}
+		line = strings.TrimSuffix(line, "\n")
+
+		_, err = Parse("init script", []byte(line))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+	}
+
+	return
+}
+
 func main() {
 	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
 	flag.Parse()
+
+	LoadInitScript()
 
 	rl, err := readline.New("> ")
 	if err != nil {
