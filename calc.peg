@@ -178,7 +178,7 @@ SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
 	return nil, nil
 }
 
-DefStmt "def statement" <- "def " name:Identifier _ '(' parms:DefStmtParms ')' _ expr:([^,]+) {
+DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ expr:([^,]+) {
   
 	buf := charClassRepetitionToByteSlice(expr)
 
@@ -196,7 +196,7 @@ DefStmt "def statement" <- "def " name:Identifier _ '(' parms:DefStmtParms ')' _
 	return nil, nil
 }
 
-DefStmtParms "def stmt params" <- first:Identifier? rest:( ',' Identifier )* {
+DefStmtParms "def stmt params" <- first:Identifier? rest:( _ ',' _ Identifier )* {
   
 	l := []interface{}{}
 	if first != nil && len(first.(string)) > 0 {
@@ -205,7 +205,7 @@ DefStmtParms "def stmt params" <- first:Identifier? rest:( ',' Identifier )* {
 
 	for _,v := range rest.([]interface{}) {
 		// Ignore commas
-		l = append(l, v.([]interface{})[1])
+		l = append(l, v.([]interface{})[3])
 	}
 
 	return l, nil

@@ -538,6 +538,18 @@ func TestFuncDef(t *testing.T) {
 			paramNames: []string{"x", "why"},
 			body:       "x+why+1",
 		},
+		{
+			name:       "no_params_space",
+			text:       "def fobb (  ) 1",
+			paramNames: []string{},
+			body:       "1",
+		},
+		{
+			name:       "two_params_space",
+			text:       "def fobb ( x , why ) x+why+1",
+			paramNames: []string{"x", "why"},
+			body:       "x+why+1",
+		},
 	}
 
 	for _, tc := range tests {
