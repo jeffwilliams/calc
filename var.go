@@ -40,6 +40,11 @@ func Resolve(varName string) (interface{}, error) {
 	}
 }
 
+func SetGlobal(name string, val interface{}) {
+	GlobalVars[name] = val
+	updateAutocomplete()
+}
+
 func ClearLocals() {
 	for k := range LocalVars {
 		delete(LocalVars, k)

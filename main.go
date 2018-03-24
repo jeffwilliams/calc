@@ -140,6 +140,22 @@ func evalInt(op rune, a, b *big.Int) (r *big.Int, err error) {
 
 var outputBase numberBase = decimalBase
 
+var completer = readline.NewPrefixCompleter()
+
+func updateAutocomplete() {
+	var items []readline.PrefixCompleterInterface
+
+	for k := range GlobalVars {
+		items = append(items, readline.PcItem(k))
+	}
+
+	for k := range Funcs {
+		items = append(items, readline.PcItem(k))
+	}
+
+	completer.SetChildren(items)
+}
+
 func LoadInitScript() (err error) {
 	path := os.ExpandEnv("$HOME/.calcrc")
 
@@ -172,7 +188,11 @@ func main() {
 
 	LoadInitScript()
 
-	rl, err := readline.New("> ")
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:       "> ",
+		AutoComplete: completer,
+	})
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: loading readline failed: %v\n", err)
 		return

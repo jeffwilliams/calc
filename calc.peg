@@ -174,7 +174,7 @@ SetObaseStmt "set obase" <- "obase" _ '=' _ v:( "hex" / "dec" / "bin" ) {
 }
 
 SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
-  GlobalVars[id.(string)] = expr
+  SetGlobal(id.(string), expr)
 	return nil, nil
 }
 

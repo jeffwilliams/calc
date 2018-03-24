@@ -81,6 +81,9 @@ func RegisterBuiltin(name string, fn interface{}) Func {
 	}
 
 	Funcs[f.name] = f
+
+	updateAutocomplete()
+
 	return f
 }
 
@@ -93,6 +96,9 @@ func RegisterDefined(name string, paramNames []string, body []byte) Func {
 	}
 
 	Funcs[f.name] = f
+
+	updateAutocomplete()
+
 	return f
 }
 
