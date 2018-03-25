@@ -28,7 +28,7 @@ func (f BuiltinFunc) Call(parms []interface{}) (result interface{}, err error) {
 		p := reflect.TypeOf(parms[i])
 		t := f.typ.In(i)
 		if !p.AssignableTo(t) {
-			err = fmt.Errorf("Parameter %d is invalid: expected %s but got %s", i+1, t.Name(), p.Name())
+			err = fmt.Errorf("Parameter %d is invalid: expected %s but got %s", i+1, t, p)
 			return
 		}
 	}
