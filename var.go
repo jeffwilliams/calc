@@ -20,14 +20,6 @@ func (e ErrUnboundVar) Error() string {
 	return string(e)
 }
 
-func tst() {
-	var e error
-	e = NewErrUnboundVar("m")
-	_ = e
-}
-
-//var ErrUnboundVar error = fmt.Errorf("Unbound variable")
-
 func Resolve(varName string) (interface{}, error) {
 	if v, ok := LocalVars[varName]; ok {
 		return v, nil
