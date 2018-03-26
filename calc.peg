@@ -164,7 +164,7 @@ _ "spaces" <- [ \t]*
 EOF <- !.
 
 // Statements 
-Stmt "statement" <- SetSettingStmt / SetStmt / DefStmt {
+Stmt "statement" <- SetSettingStmt / SetStmt / DefStmt / HelpStmt {
 	return nil, nil
 }
 
@@ -178,7 +178,7 @@ SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
 	return nil, nil
 }
 
-DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ expr:([^,]+) {
+DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:([^,]+) {
   
 	buf := charClassRepetitionToByteSlice(expr)
 
@@ -191,8 +191,12 @@ DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ '
 	}
 
 	nm := name.(string)
+	var hlp string
+	if help != nil {
+	  hlp = help.([]interface{})[1].(string)
+	}
 	prm := toStringSlice(parms.([]interface{}))
-  RegisterDefined(nm, prm, buf)
+  RegisterDefined(nm, prm, buf, hlp)
 	return nil, nil
 }
 
@@ -209,6 +213,18 @@ DefStmtParms "def stmt params" <- first:Identifier? rest:( _ ',' _ Identifier )*
 	}
 
 	return l, nil
+}
+
+DefHelp "def stmt help" <- [^"]+ {
+	// "
+  return string(c.text), nil
+}
+
+HelpStmt "help stmt" <- _ "help" _ {
+	for k, v := range Funcs {
+		fmt.Printf("%s: %s\n", k, v.Help())
+	}
+	return nil, nil
 }
 
 /* vim: set filetype=go :*/

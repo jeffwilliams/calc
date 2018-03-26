@@ -430,9 +430,9 @@ func TestCalc(t *testing.T) {
 		return big.NewInt(555), nil
 	}
 
-	RegisterBuiltin("funca", fn0)
-	RegisterBuiltin("funcb", fn1)
-	RegisterBuiltin("funcc", fn2)
+	RegisterBuiltin("funca", fn0, "")
+	RegisterBuiltin("funcb", fn1, "")
+	RegisterBuiltin("funcc", fn2, "")
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -519,6 +519,7 @@ func TestFuncDef(t *testing.T) {
 		text       string
 		paramNames []string
 		body       string
+		help       string
 	}{
 		{
 			name:       "no_params",
@@ -550,6 +551,13 @@ func TestFuncDef(t *testing.T) {
 			paramNames: []string{"x", "why"},
 			body:       "x+why+1",
 		},
+		{
+			name:       "help",
+			text:       "def fobb ( x , why ) \"fobbert b\" x+why+1",
+			paramNames: []string{"x", "why"},
+			body:       "x+why+1",
+			help:       "fobbert b",
+		},
 	}
 
 	for _, tc := range tests {
@@ -575,7 +583,11 @@ func TestFuncDef(t *testing.T) {
 			}
 
 			if string(df.body) != tc.body {
-				t.Fatalf("function `fobb` body is wronghas wrong param: expected %v, actual %v ", tc.body, df.body)
+				t.Fatalf("function `fobb` body is wrong: expected %v, actual %v ", tc.body, df.body)
+			}
+
+			if df.help != tc.help {
+				t.Fatalf("function `fobb` help is wrong: expected %v, actual %v ", tc.help, df.help)
 			}
 
 		})

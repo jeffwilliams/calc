@@ -16,7 +16,7 @@ func TestBuiltinFunc1(t *testing.T) {
 		}
 	}
 
-	f := RegisterBuiltin("min", min)
+	f := RegisterBuiltin("min", min, "")
 
 	m, err := f.Call([]interface{}{big.NewInt(4), big.NewInt(5)})
 	if err != nil {
@@ -37,7 +37,7 @@ func TestBuiltinFuncErr(t *testing.T) {
 		return nil, fmt.Errorf("an error")
 	}
 
-	f := RegisterBuiltin("fail", fail)
+	f := RegisterBuiltin("fail", fail, "")
 
 	_, err := f.Call([]interface{}{big.NewInt(4), big.NewInt(5)})
 	if err == nil {
@@ -52,7 +52,7 @@ func TestBuiltinFuncWrongParamType(t *testing.T) {
 		return big.NewInt(5), nil
 	}
 
-	f := RegisterBuiltin("five", fn)
+	f := RegisterBuiltin("five", fn, "")
 
 	_, err := f.Call([]interface{}{big.NewFloat(4)})
 	if err == nil {
@@ -66,7 +66,7 @@ func TestBuiltinFuncWrongNumParams(t *testing.T) {
 		return big.NewInt(5), nil
 	}
 
-	f := RegisterBuiltin("five", fn)
+	f := RegisterBuiltin("five", fn, "")
 
 	_, err := f.Call([]interface{}{big.NewInt(4), big.NewInt(5)})
 	if err == nil {
@@ -78,7 +78,7 @@ func TestDefinedFuncSimple(t *testing.T) {
 
 	parms := []string{}
 	body := []byte("5")
-	f := RegisterDefined("five", parms, body)
+	f := RegisterDefined("five", parms, body, "")
 
 	m, err := f.Call([]interface{}{})
 	if err != nil {
@@ -98,7 +98,7 @@ func TestDefinedFuncTwoParams(t *testing.T) {
 
 	parms := []string{"x", "why"}
 	body := []byte("x + why")
-	f := RegisterDefined("sum", parms, body)
+	f := RegisterDefined("sum", parms, body, "")
 
 	m, err := f.Call([]interface{}{big.NewInt(3), big.NewInt(4)})
 	if err != nil {

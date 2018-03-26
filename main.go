@@ -37,6 +37,9 @@ func updateAutocomplete() {
 	setItem := readline.PcItem("set", settings...)
 	items = append(items, setItem)
 
+	items = append(items, readline.PcItem("def"))
+	items = append(items, readline.PcItem("help"))
+
 	completer.SetChildren(items)
 }
 

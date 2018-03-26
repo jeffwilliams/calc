@@ -7,10 +7,12 @@ import (
 
 type Func interface {
 	Call(parms []interface{}) (result interface{}, err error)
+	Help() string
 }
 
 type BuiltinFunc struct {
 	name string
+	help string
 	fn   reflect.Value
 	typ  reflect.Type
 }
@@ -49,8 +51,13 @@ func (f BuiltinFunc) Call(parms []interface{}) (result interface{}, err error) {
 
 }
 
+func (f BuiltinFunc) Help() string {
+	return f.help
+}
+
 type DefinedFunc struct {
 	name       string
+	help       string
 	paramNames []string
 	body       []byte
 }
@@ -68,14 +75,19 @@ func (f DefinedFunc) Call(parms []interface{}) (result interface{}, err error) {
 	return Parse("function call", f.body)
 }
 
+func (f DefinedFunc) Help() string {
+	return f.help
+}
+
 var Funcs map[string]Func = map[string]Func{}
 
 // Create a Func that wraps the passed function `fn` and store it in the Funcs map so that it may be used in
 // calculations. The created Func is returned.
-func RegisterBuiltin(name string, fn interface{}) Func {
+func RegisterBuiltin(name string, fn interface{}, help string) Func {
 
 	f := &BuiltinFunc{
 		name: name,
+		help: help,
 		typ:  reflect.TypeOf(fn),
 		fn:   reflect.ValueOf(fn),
 	}
@@ -87,10 +99,11 @@ func RegisterBuiltin(name string, fn interface{}) Func {
 	return f
 }
 
-func RegisterDefined(name string, paramNames []string, body []byte) Func {
+func RegisterDefined(name string, paramNames []string, body []byte, help string) Func {
 
 	f := &DefinedFunc{
 		name:       name,
+		help:       help,
 		paramNames: paramNames,
 		body:       body,
 	}

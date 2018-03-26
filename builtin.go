@@ -21,8 +21,8 @@ func now() (*big.Int, error) {
 }
 
 func init() {
-	RegisterBuiltin("binom", binom)
-	RegisterBuiltin("choose", binom)
-	RegisterBuiltin("bit", bit)
-	RegisterBuiltin("now", now)
+	RegisterBuiltin("binom", binom, "binmomial coeffient of (p1, p2)")
+	RegisterBuiltin("choose", binom, "p1 choose p2. Same as binom")
+	RegisterBuiltin("bit", bit, "return the value of bit p1, counting from 0")
+	RegisterBuiltin("now", now, "return the number of milliseconds since epoch")
 }
