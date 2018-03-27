@@ -55,6 +55,10 @@ func (f BuiltinFunc) Help() string {
 	return f.help
 }
 
+func (f BuiltinFunc) NumParams() int {
+	return f.typ.NumIn()
+}
+
 type DefinedFunc struct {
 	name       string
 	help       string
@@ -77,6 +81,10 @@ func (f DefinedFunc) Call(parms []interface{}) (result interface{}, err error) {
 
 func (f DefinedFunc) Help() string {
 	return f.help
+}
+
+func (f DefinedFunc) NumParams() int {
+	return len(f.paramNames)
 }
 
 var Funcs map[string]Func = map[string]Func{}

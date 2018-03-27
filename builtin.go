@@ -34,7 +34,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 	RegisterBuiltin("binom", binom, "binmomial coeffient of (p1, p2)")
 	RegisterBuiltin("choose", binom, "p1 choose p2. Same as binom")
-	RegisterBuiltin("bit", bit, "return the value of bit p1, counting from 0")
+	RegisterBuiltin("bit", bit, "return the value of bit p2 in p1, counting from 0")
 	RegisterBuiltin("now", now, "return the number of milliseconds since epoch")
 	RegisterBuiltin("roll", roll, "roll p1 dice each having p2 sides and sum the outcomes")
 }

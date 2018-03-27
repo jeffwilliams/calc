@@ -221,9 +221,7 @@ DefHelp "def stmt help" <- [^"]+ {
 }
 
 HelpStmt "help stmt" <- _ "help" _ {
-	for k, v := range Funcs {
-		fmt.Printf("%s: %s\n", k, v.Help())
-	}
+  printFuncHelp() 
 	return nil, nil
 }
 
