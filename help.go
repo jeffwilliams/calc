@@ -1,13 +1,25 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 type NumParamer interface {
 	NumParams() int
 }
 
 func printFuncHelp() {
-	for k, v := range Funcs {
+	keys := make([]string, len(Funcs))
+	i := 0
+	for k := range Funcs {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := Funcs[k]
 		p, ok := v.(NumParamer)
 		if ok {
 			fmt.Printf("%s(", k)
