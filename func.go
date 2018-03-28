@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 )
 
@@ -30,8 +31,18 @@ func (f BuiltinFunc) Call(parms []interface{}) (result interface{}, err error) {
 		p := reflect.TypeOf(parms[i])
 		t := f.typ.In(i)
 		if !p.AssignableTo(t) {
-			err = fmt.Errorf("Parameter %d is invalid: expected %s but got %s", i+1, t, p)
-			return
+			// try to upcast from int to float
+			if pi, ok := parms[i].(*big.Int); ok {
+				flt := big.NewFloat(0)
+				flt.SetInt(pi)
+				parms[i] = flt
+				p = reflect.TypeOf(parms[i])
+			}
+
+			if !p.AssignableTo(t) {
+				err = fmt.Errorf("Parameter %d is invalid: expected %s but got %s", i+1, t, p)
+				return
+			}
 		}
 	}
 
