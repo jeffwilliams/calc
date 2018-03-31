@@ -16,3 +16,6 @@
 # TODO
 
 Add support for decoding IP addresses from hex.
+
+unit conversions. i.e. kg to lbs and ounces
+    t=kg_to_lbs(2.2); floor(t); lbs_to_oz( t-floor(t))

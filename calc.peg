@@ -66,7 +66,27 @@
 	}	
 }
 
-Input "input" <- n:(Stmt / Expr / Empty) EOF {
+Input "input" <- first:(Block?) rest:((';' Block)*) EOF {
+  if rest == nil || len(rest.([]interface{})) == 0 {
+    return first, nil
+  } else {
+    l := []interface{}{}
+    if first != nil {
+      l = append(l, first)
+    }
+  
+    if rest != nil {
+      for _,v := range rest.([]interface{}) {
+        // Ignore semicolons
+        l = append(l, v.([]interface{})[1])
+      }
+    }
+  
+    return l, nil
+  }
+}
+
+Block <- n:(Stmt / Expr) {
   return n, nil
 }
 

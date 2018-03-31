@@ -69,6 +69,24 @@ func LoadInitScript() (err error) {
 	return
 }
 
+func printResult(parsed interface{}) {
+	switch t := parsed.(type) {
+	case *big.Int:
+		fmt.Println(outputBase.format(parsed.(fmt.Formatter)))
+	case *big.Float:
+		fmt.Printf("%f\n", parsed)
+	case []interface{}:
+		for _, e := range t {
+			printResult(e)
+		}
+	case string:
+		fmt.Printf("%s\n", parsed)
+	default:
+		// Don't print the results of statements
+		//fmt.Println(parsed)
+	}
+}
+
 func main() {
 	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
 	flag.Parse()
@@ -103,17 +121,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
 
-		switch parsed.(type) {
-		case *big.Int:
-			fmt.Println(outputBase.format(parsed.(fmt.Formatter)))
-		case *big.Float:
-			fmt.Printf("%f\n", parsed)
-		case string:
-			fmt.Printf("%s\n", parsed)
-		default:
-			// Don't print the results of statements
-			//fmt.Println(parsed)
-		}
-
+		printResult(parsed)
 	}
 }

@@ -495,6 +495,30 @@ func TestUndefVarInInvalidExpr(t *testing.T) {
 	}
 }
 
+func TestMultipleBlocks(t *testing.T) {
+	r, err := Parse("test", []byte("5;1+2"))
+	if err != nil {
+		t.Fatalf("parsing failed: %v", err)
+	}
+
+	l := r.([]interface{})
+	v, ok := l[0].(*big.Int)
+	if !ok {
+		t.Fatalf("First block did not evaluate to int")
+	}
+	if !numEql(v, big.NewInt(5)) {
+		t.Fatalf("first block has wrong value: %v", v)
+	}
+
+	v, ok = l[1].(*big.Int)
+	if !ok {
+		t.Fatalf("First block did not evaluate to int")
+	}
+	if !numEql(v, big.NewInt(3)) {
+		t.Fatalf("first block has wrong value: %v", v)
+	}
+}
+
 func TestSetVar(t *testing.T) {
 	_, err := Parse("test", []byte("baz = 6"))
 	if err != nil {
