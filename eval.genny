@@ -1,6 +1,9 @@
 package main
 
-import "github.com/cheekybits/genny/generic"
+import (
+  "github.com/cheekybits/genny/generic"
+	"bytes"
+)
 
 type Number generic.Type
 
@@ -30,4 +33,102 @@ func evalUnaryOpNumber(op rune, a *Number) (r *Number, err error) {
 	return
 }
 
+func NewNumberList(l []interface{}) ( NumberList, error) {
+  r := make( NumberList, len(l))
+
+	for i,v := range l{
+		var ok bool
+		r[i], ok = v.(*Number)
+		if !ok {
+      return nil, fmt.Errorf("list element at index %d is not a Number\n", i)
+		}
+	}
+
+	return r, nil
+}
+
+func (l NumberList) Eql(o interface{}) bool {
+	b, ok := o.( NumberList)
+	if !ok {
+    return false
+	}
+
+  if len(l) != len(b) {
+		return false
+	}
+
+	for i,v := range l {
+    if v.Cmp(b[i]) != 0 {
+		  return false
+		}
+	}
+
+	return true
+}
+
+func (l NumberList) String() string {
+  var buf bytes.Buffer
+	buf.WriteRune('[')
+  for i, n := range l {
+    if i > 0 {
+      fmt.Fprintf(&buf, ", ")
+		}
+    fmt.Fprintf(&buf, "%v", n)
+	}
+	buf.WriteRune(']')
+  return buf.String()
+}
+
+func (l NumberList) apply(a, b NumberList, fn func(self, a, b *Number) *Number) ( NumberList, error) {
+  if len(a) != len(b) {
+		return nil, fmt.Errorf("NumberList.Add: lists are different lengths")
+	}
+
+	for i,v := range a {
+    l[i] = fn(v, v, b[i])
+	}
+
+	return l, nil
+}
+
+
+func (l NumberList) Add(a, b NumberList) (n NumberList, err error) {
+	return l.apply(a, b, (*Number).Add)
+}
+
+func (l NumberList) Sub(a, b NumberList) (n NumberList, err error) {
+	return l.apply(a, b, (*Number).Sub)
+}
+
+func (l NumberList) Mul(a, b NumberList) (n NumberList, err error) {
+	return l.apply(a, b, (*Number).Mul)
+}
+
+func (l NumberList) Quo(a, b NumberList) (n NumberList, err error) {
+	return l.apply(a, b, (*Number).Quo)
+}
+
+func (l NumberList) Neg(a NumberList) NumberList {
+	for i,v := range a {
+    l[i] = v.Neg(v)
+	}
+
+	return l
+}
+
+func evalBinaryOpNumberList(op rune, a, b NumberList) (r NumberList, err error) {
+	switch op {
+	case '+':
+		r, err = a.Add(a, b)
+	case '-':
+		r, err = a.Sub(a, b)
+	case '*':
+		r, err = a.Mul(a, b)
+	case '/':
+		r, err = a.Quo(a, b)
+	default:
+		err = fmt.Errorf("evalBinaryOpNumber: Invalid operator %s", op)
+	}
+	return
+}
 /* vim: set filetype=go :*/

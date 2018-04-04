@@ -37,12 +37,26 @@
 	  return string(charClassRepetitionToByteSlice(x))
 	}
 
+	func buildSlice(first, rest interface{}, ndx int) []interface{} {
+    l := []interface{}{}
+    if first != nil {
+      l = append(l, first)
+    }
+  
+    if rest != nil {
+      for _,v := range rest.([]interface{}) {
+        // Ignore semicolons
+        l = append(l, v.([]interface{})[ndx])
+      }
+    }
+  
+    return l
+	}
 
 	// Evaluate the expression for a rule that consists of an operand, operator, 
 	// and expression.
 	func handleBinaryOpExpr(num, rest interface{}) (interface{}, error) {
 		var err error
-
 		acc := num
 		for _, v := range toIfaceSlice(rest) {
 			list := toIfaceSlice(v)
@@ -70,18 +84,7 @@ Input "input" <- first:(Block?) rest:((';' Block)*) EOF {
   if rest == nil || len(rest.([]interface{})) == 0 {
     return first, nil
   } else {
-    l := []interface{}{}
-    if first != nil {
-      l = append(l, first)
-    }
-  
-    if rest != nil {
-      for _,v := range rest.([]interface{}) {
-        // Ignore semicolons
-        l = append(l, v.([]interface{})[1])
-      }
-    }
-  
+    l := buildSlice(first, rest, 1)
     return l, nil
   }
 }
@@ -119,7 +122,7 @@ Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ F
 	return handleBinaryOpExpr(num, rest)
 }
 
-FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / FuncCall / Number / Variable ) {
+FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / FuncCall / Number / Variable / List ) {
 	return n, nil
 }
 
@@ -136,18 +139,7 @@ FuncCall "function call" <- name:Identifier _ '(' parms:FuncParms ')' {
 }
 
 FuncParms "function params" <- first:Expr? rest:( ',' Expr )* {
-	l := []interface{}{}
-	if first != nil {
-	  l = append(l, first)
-	}
-
-	if rest != nil {
-	  for _,v := range rest.([]interface{}) {
-		  // Ignore commas
-		  l = append(l, v.([]interface{})[1])
-	  }
-	}
-
+	l := buildSlice(first, rest, 1)
 	return l, nil
 }
 
@@ -165,6 +157,34 @@ Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   i := new(big.Int)
   _, err := fmt.Sscan(strings.Replace(string(c.text),",","",-1), i)
   return i, err
+}
+
+List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
+	l := buildSlice(first, rest, 3)
+	isInts := true
+	for i, v := range l {
+    _, isInt := v.(*big.Int)
+		_, isFlt := v.(*big.Float)
+		if !isInt && !isFlt {
+      return nil, fmt.Errorf("lists may only contain ints and floats, but element at index %d is %T", i, v)
+		}
+ 
+		if i == 0 {
+      isInts = isInt
+		} else {
+      if isInts && !isInt {
+        return nil, fmt.Errorf("lists must contain only ints or only floats; list is ints until element at index %d", i)
+			} else if !isInts && isInt {
+        return nil, fmt.Errorf("lists must contain only ints or only floats; list is floats until element at index %d", i)
+			}
+		}
+	}
+
+	if isInts {
+	  return NewBigIntList(l)
+	} else {
+	  return NewBigFloatList(l)
+	}
 }
 
 Variable <- id:Identifier {
@@ -221,17 +241,7 @@ DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ '
 }
 
 DefStmtParms "def stmt params" <- first:Identifier? rest:( _ ',' _ Identifier )* {
-  
-	l := []interface{}{}
-	if first != nil && len(first.(string)) > 0 {
-	  l = append(l, first)
-	}
-
-	for _,v := range rest.([]interface{}) {
-		// Ignore commas
-		l = append(l, v.([]interface{})[3])
-	}
-
+	l := buildSlice(first, rest, 3)
 	return l, nil
 }
 

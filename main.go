@@ -79,6 +79,10 @@ func printResult(parsed interface{}) {
 		for _, e := range t {
 			printResult(e)
 		}
+	case BigIntList:
+		fmt.Printf("%s\n", parsed)
+	case BigFloatList:
+		fmt.Printf("%s\n", parsed)
 	case string:
 		fmt.Printf("%s\n", parsed)
 	default:

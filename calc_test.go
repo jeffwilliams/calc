@@ -7,6 +7,32 @@ import (
 
 var smallFloat = big.NewFloat(0.00001)
 
+func eql(a, b interface{}) bool {
+	switch a.(type) {
+	case BigIntList:
+		return listEql(a, b)
+	case BigFloatList:
+		return listEql(a, b)
+	case []interface{}:
+		return listEql(a, b)
+	default:
+		return numEql(a, b)
+	}
+}
+
+func listEql(a, b interface{}) bool {
+	switch t := a.(type) {
+	case BigIntList:
+		return t.Eql(b)
+	case BigFloatList:
+		return t.Eql(b)
+	default:
+		return false
+	}
+
+	return true
+}
+
 func numEql(a, b interface{}) bool {
 	if a == nil && b == nil {
 		return true
@@ -53,6 +79,7 @@ func TestCalc(t *testing.T) {
 		name   string
 		input  string
 		output interface{}
+		err    bool
 	}{
 		{
 			name:   "single_int",
@@ -418,6 +445,46 @@ func TestCalc(t *testing.T) {
 			input:  "def func (parmA,parmB) 5+parmA/parmB",
 			output: nil,
 		},
+		{
+			name:   "empty_list",
+			input:  "[]",
+			output: BigIntList{},
+		},
+		{
+			name:   "one_elem_list",
+			input:  "[5]",
+			output: BigIntList{big.NewInt(5)},
+		},
+		{
+			name:   "two_elem_list",
+			input:  " [ 5 , 2*6 ] ",
+			output: BigIntList{big.NewInt(5), big.NewInt(12)},
+		},
+		{
+			name:  "wrong_type_list",
+			input: " [ 5 , 2.0 ] ",
+			err:   true,
+		},
+		{
+			name:  "wrong_type_list_2",
+			input: " [ 5.0 , 2 ] ",
+			err:   true,
+		},
+		{
+			name:   "vec_add",
+			input:  "[1]+[2]",
+			output: BigIntList{big.NewInt(3)},
+		},
+		{
+			name:   "vec_sub",
+			input:  "[3,4]-[2,2]",
+			output: BigIntList{big.NewInt(1), big.NewInt(2)},
+		},
+		/*{
+			name:  "wrong_list_len",
+			input: "[5,2]+[3]",
+			err:   true,
+		},*/
 	}
 
 	fn0 := func() (*big.Int, error) {
@@ -440,11 +507,15 @@ func TestCalc(t *testing.T) {
 			// Uncomment the below to print pigeon debug info
 			//parsed, err := Parse("test", []byte(tc.input), Debug(true))
 
-			if err != nil {
+			if err != nil && !tc.err {
 				t.Fatalf("parsing '%s' failed: %v", tc.input, err)
 			}
 
-			if !numEql(parsed, tc.output) {
+			if tc.err && err == nil {
+				t.Fatalf("expected error but none occurred")
+			}
+
+			if !eql(parsed, tc.output) {
 				t.Fatalf("expected '%v' (type %T) but got '%v' (type %T)", tc.output, tc.output, parsed, parsed)
 			}
 

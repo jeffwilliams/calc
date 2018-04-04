@@ -44,6 +44,29 @@ func upcast(a, b interface{}) (an, bn interface{}, isInt bool) {
 
 }
 
+func evalBinaryOpList(op rune, a, b interface{}) (r interface{}, err error) {
+	switch al := a.(type) {
+	case BigIntList:
+		bl, ok := b.(BigIntList)
+		if !ok {
+			err = fmt.Errorf("operation between mismatched list types")
+			return
+		}
+		return evalBinaryOpbigIntList(op, al, bl)
+	case BigFloatList:
+		bl, ok := b.(BigFloatList)
+		if !ok {
+			err = fmt.Errorf("operation between mismatched list types")
+			return
+		}
+		return evalBinaryOpbigFloatList(op, al, bl)
+	default:
+		err = fmt.Errorf("unknown list type")
+	}
+
+	return
+}
+
 // evalBinaryOp evaluates a simple expression of two operands and an operator.
 // If both operands are Ints then the result is an Int, but if one of the operands is
 // a Float the result is a Float. Effectively a Float at any point in an expression
@@ -51,6 +74,14 @@ func upcast(a, b interface{}) (an, bn interface{}, isInt bool) {
 // portions up to that point may have been calculated using integer arithmetic; this
 // may lead to odd behavior for division.
 func evalBinaryOp(op rune, a, b interface{}) (r interface{}, err error) {
+
+	switch a.(type) {
+	case BigIntList:
+		return evalBinaryOpList(op, a, b)
+	case BigFloatList:
+		return evalBinaryOpList(op, a, b)
+	}
+
 	a, b, isInt := upcast(a, b)
 
 	if isInt {
