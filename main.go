@@ -123,6 +123,8 @@ func main() {
 		parsed, err := Parse("last line", []byte(line))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		} else {
+			SetGlobal("last", parsed)
 		}
 
 		printResult(parsed)
