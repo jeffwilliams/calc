@@ -2,7 +2,7 @@
 
 Calc is a simple interactive calculator for your terminal.
 
-# Hows it work
+# How's it work?
 
 Input an expression and hit enter to evaluate:
 
@@ -83,10 +83,10 @@ Help lists the defined functions:
     atanh(p1): inverse hyperbolic tangent. This function only has the precision of a float64.
     binom(p1, p2): binmomial coeffient of (p1, p2)
     bit(p1, p2): return the value of bit p2 in p1, counting from 0
+    bytes(p1): return a list of each byte composing an integer
     cbrt(p1): cube root. This function only has the precision of a float64.
     ceil(p1): ceiling. This function only has the precision of a float64.
     choose(p1, p2): p1 choose p2. Same as binom
-    circ_area(p1): area of circle
     cos(p1): cosine. This function only has the precision of a float64.
     cosh(p1): hyperbolic cosine. This function only has the precision of a float64.
     erf(p1): error function. This function only has the precision of a float64.
@@ -96,13 +96,18 @@ Help lists the defined functions:
     exp2(p1): calculates 2^p1, the base-2 exponential of p1. This function only has the precision of a float64.
     floor(p1): floor. This function only has the precision of a float64.
     gamma(p1): gamma function. This function only has the precision of a float64.
+    hex_to_ipv4(p1): Convert a hex value to an IPv4 address
     hypot(p1, p2): calculates sqrt(p1*p1 + p2*p2). This function only has the precision of a float64.
     j0(p1): order zero bessel function of the first kind. This function only has the precision of a float64.
     j1(p1): order one bessel function of the first kind. This function only has the precision of a float64.
     lbs_n_oz_to_kg(p1, p2): convert pounds and ounces to kg
+    li(p1, p2): return element at index p2 in list p1
+    llen(p1): return length of a list
     log(p1): natural logarithm. This function only has the precision of a float64.
     log10(p1): base-10 logarithm. This function only has the precision of a float64.
     log2(p1): base-2 logarithm. This function only has the precision of a float64.
+    lrev(p1): return a copy of list p1 with elements in reverse order
+    lrp(p1, p2): return a list consisting of p1 repeated p2 times
     now(): return the number of milliseconds since epoch
     roll(p1, p2): roll p1 dice each having p2 sides and sum the outcomes
     sin(p1): sine. This function only has the precision of a float64.
@@ -110,6 +115,7 @@ Help lists the defined functions:
     sqrt(p1): square root. This function only has the precision of a float64.
     tan(p1): tangent. This function only has the precision of a float64.
     tanh(p1): hyperbolic tangent. This function only has the precision of a float64.
+    unbytes(p1): treat the list as a list of bytes and convert it to an integer
     y0(p1): order zero bessel function of the second kind. This function only has the precision of a float64.
     y1(p1): order one bessel function of the second kind. This function only has the precision of a float64.
 
