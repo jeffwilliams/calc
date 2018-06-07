@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
@@ -47,6 +48,69 @@ func wrapFloat64FuncWith2Arg(inFn interface{}) (outFn interface{}) {
 		return big.NewFloat(f(af, bf)), nil
 	}
 }
+
+func getBytes(i *big.Int) (l BigIntList, err error) {
+	b := i.Bytes()
+	l = make(BigIntList, len(b))
+	for i, v := range b {
+		l[i] = big.NewInt(int64(v))
+	}
+	return
+}
+
+/*** List functions ***/
+
+func listLen(l BigIntList) (*big.Int, error) {
+	return big.NewInt(int64(len(l))), nil
+}
+
+func listIndex(l BigIntList, i *big.Int) (*big.Int, error) {
+	ndx := int(i.Uint64())
+	if ndx < 0 || ndx >= len(l) {
+		return nil, fmt.Errorf("Index out of range")
+	}
+
+	return cloneInt(l[ndx]), nil
+}
+
+func listReverse(l BigIntList) (l2 BigIntList, err error) {
+	l2 = make(BigIntList, len(l))
+	for i, v := range l {
+		l2[len(l)-i-1] = cloneInt(v)
+	}
+
+	return
+}
+
+func listRepeat(e, n *big.Int) (l BigIntList, err error) {
+	i := int(n.Uint64())
+
+	if i < 0 {
+		return nil, fmt.Errorf("Repeat count must be positive")
+	}
+
+	l = make(BigIntList, i)
+	for j := range l {
+		l[j] = cloneInt(e)
+	}
+
+	return
+}
+
+func unbytes(l BigIntList) (*big.Int, error) {
+	bytes := make([]byte, len(l))
+	for i, v := range l {
+		n := v.Uint64()
+		if n > 255 {
+			return nil, fmt.Errorf("Value too large for byte")
+		}
+		bytes[i] = byte(n)
+	}
+	return big.NewInt(0).SetBytes(bytes), nil
+
+}
+
+/*** End List functions ***/
 
 func registerStdlibMath() {
 
@@ -99,5 +163,12 @@ func init() {
 	RegisterBuiltin("bit", bit, "return the value of bit p2 in p1, counting from 0")
 	RegisterBuiltin("now", now, "return the number of milliseconds since epoch")
 	RegisterBuiltin("roll", roll, "roll p1 dice each having p2 sides and sum the outcomes")
+	RegisterBuiltin("bytes", getBytes, "return a list of each byte composing an integer")
+	/*** List functions ***/
+	RegisterBuiltin("llen", listLen, "return length of a list")
+	RegisterBuiltin("li", listIndex, "return element at index p2 in list p1")
+	RegisterBuiltin("lrev", listReverse, "return a copy of list p1 with elements in reverse order")
+	RegisterBuiltin("lrp", listRepeat, "return a list consisting of p1 repeated p2 times")
+	RegisterBuiltin("unbytes", unbytes, "treat the list as a list of bytes and convert it to an integer")
 	registerStdlibMath()
 }

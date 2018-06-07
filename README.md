@@ -120,12 +120,48 @@ Note that `lbs_n_oz_to_kg` is in there. There are a number of predefined functio
     > exp(2^800)
     0.000000
 
-Basic list/vector support is included as well. More support is forthcoming:
+Basic list/vector support is included as well:
 
     > [2,3,4,5]+[1,2,3,4]
     [3, 5, 7, 9]
+    > l=[1,2,3,4]
+    > l
+    [1, 2, 3, 4]
+    > llen(l)
+    4
+    > li(l,1)
+    2
+    > lrev(l)
+    [4, 3, 2, 1]
+    > lrp(4,10)
+    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
-Commonly used functions and variables may be defined in `~/.calcrc`, which is loaded on startup. 
+Conversion to and from bytes is possible, as demonstrated in the following example. It converts a list representing an IPv4 address to a hex value as it would appear as a 32-bit word in memory on a big-endian machine:
+
+    > set obase hex
+    > unbytes([127,0,0,1])
+    0x7f000001
+
+And on a little endian:
+
+    > set obase hex
+    > unbytes(lrev([127,0,0,1]))
+    0x100007f
+
+In reverse:
+
+    > bytes(0x7f000001)
+    [127, 0, 0, 1]
+    > lrev(bytes(0x100007f))
+    [127, 0, 0, 1]
+
+One might define a convenience function for the little endian conversion above, if one often works with encoded IP addresses in gdb:
+
+    > def hex_to_ipv4(v) lrev(bytes(v))
+    > hex_to_ipv4(0x100007f)
+    [127, 0, 0, 1]
+
+Commonly used user-defined functions (such as `hex_to_ipv4`) and variables may be defined in `~/.calcrc`, which is loaded on startup. 
 
 Calc supports readline-like line editing: UP moves to the previous expression, arrow keys, home, end, CTRL-A, CTRL-E, CTRL-U, CTRL-R, and CTRL-K all behave as expected. On a blank line the TAB key auto-completes against defined functions, variables, and keywords.
 

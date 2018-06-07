@@ -69,6 +69,17 @@ func LoadInitScript() (err error) {
 	return
 }
 
+func printIntList(l BigIntList) {
+	fmt.Printf("[")
+	for i, v := range l {
+		if i != 0 {
+			fmt.Printf(", ")
+		}
+		fmt.Printf(outputBase.format(v))
+	}
+	fmt.Printf("]\n")
+}
+
 func printResult(parsed interface{}) {
 	switch t := parsed.(type) {
 	case *big.Int:
@@ -80,7 +91,7 @@ func printResult(parsed interface{}) {
 			printResult(e)
 		}
 	case BigIntList:
-		fmt.Printf("%s\n", parsed)
+		printIntList(t)
 	case BigFloatList:
 		fmt.Printf("%s\n", parsed)
 	case string:
