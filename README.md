@@ -175,7 +175,7 @@ Use CTRL-C to exit.
 
 # Building
 
-Calc requires the Go programming language to build. First, install Go, then:
+Calc requires the Go programming language version 1.8 to build (Needs big.Float to implement fmt.Scanner). First, install Go, then:
 
 ## On Linux
 
