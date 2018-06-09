@@ -136,10 +136,18 @@ func RegisterDefined(name string, paramNames []string, body []byte, help string)
 
 func Call(name string, parms []interface{}) (result interface{}, err error) {
 	f, ok := Funcs[name]
-	if !ok {
-		return nil, fmt.Errorf("No such function %s", name)
+	if ok {
+		return f.Call(parms)
 	}
-	return f.Call(parms)
+
+	v, err := ResolveStrict(name)
+	if err == nil {
+		if f, ok := v.(Func); ok {
+			return f.Call(parms)
+		}
+	}
+
+	return nil, fmt.Errorf("No such function %s", name)
 }
 
 var funcParse func(filename string, b []byte, opts ...Option) (interface{}, error)

@@ -21,15 +21,30 @@ func (e ErrUnboundVar) Error() string {
 }
 
 func Resolve(varName string) (interface{}, error) {
+	v, err := ResolveStrict(varName)
+
+	if err == nil {
+		return v, nil
+	}
+
+	if v, ok := Funcs[varName]; ok {
+		return v, nil
+	}
+
+	return big.NewInt(1), err
+}
+
+// ResolveStrict only resolves variables, not functions.
+func ResolveStrict(varName string) (interface{}, error) {
 	if v, ok := LocalVars[varName]; ok {
 		return v, nil
 	}
 
 	if v, ok := GlobalVars[varName]; ok {
 		return v, nil
-	} else {
-		return big.NewInt(1), NewErrUnboundVar(varName)
 	}
+
+	return big.NewInt(1), NewErrUnboundVar(varName)
 }
 
 func SetGlobal(name string, val interface{}) {
