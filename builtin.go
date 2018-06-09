@@ -60,41 +60,60 @@ func getBytes(i *big.Int) (l BigIntList, err error) {
 
 /*** List functions ***/
 
-func listLen(l BigIntList) (*big.Int, error) {
-	return big.NewInt(int64(len(l))), nil
+func listLen(l interface{}) (*big.Int, error) {
+	switch t := l.(type) {
+	case BigIntList:
+		return big.NewInt(int64(len(t))), nil
+	case BigFloatList:
+		return big.NewInt(int64(len(t))), nil
+	}
+	return nil, fmt.Errorf("Unsupported type for llen")
 }
 
-func listIndex(l BigIntList, i *big.Int) (*big.Int, error) {
-	ndx := int(i.Uint64())
-	if ndx < 0 || ndx >= len(l) {
+func listIndex(l interface{}, i *big.Int) (interface{}, error) {
+	ll, err := listLen(l)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if i.Int64() < 0 || i.Cmp(ll) >= 0 {
 		return nil, fmt.Errorf("Index out of range")
 	}
 
-	return cloneInt(l[ndx]), nil
+	ndx := int(i.Uint64())
+
+	switch t := l.(type) {
+	case BigIntList:
+		return cloneInt(t[ndx]), nil
+	case BigFloatList:
+		return cloneFloat(t[ndx]), nil
+	}
+
+	return nil, fmt.Errorf("Unsupported type for parameter 1")
 }
 
-func listReverse(l BigIntList) (l2 BigIntList, err error) {
-	l2 = make(BigIntList, len(l))
-	for i, v := range l {
-		l2[len(l)-i-1] = cloneInt(v)
+func listReverse(l interface{}) (l2 interface{}, err error) {
+
+	switch l.(type) {
+	case BigIntList:
+		return listReversebigInt(l)
+	case BigFloatList:
+		return listReversebigFloat(l)
 	}
 
-	return
+	return nil, fmt.Errorf("Unsupported type for parameter 1")
 }
 
-func listRepeat(e, n *big.Int) (l BigIntList, err error) {
-	i := int(n.Uint64())
-
-	if i < 0 {
-		return nil, fmt.Errorf("Repeat count must be positive")
+func listRepeat(e interface{}, n *big.Int) (l interface{}, err error) {
+	switch t := e.(type) {
+	case *big.Int:
+		return listRepeatbigInt(t, n)
+	case *big.Float:
+		return listRepeatbigFloat(t, n)
 	}
 
-	l = make(BigIntList, i)
-	for j := range l {
-		l[j] = cloneInt(e)
-	}
-
-	return
+	return nil, fmt.Errorf("Unsupported type for parameter 1")
 }
 
 func unbytes(l BigIntList) (*big.Int, error) {

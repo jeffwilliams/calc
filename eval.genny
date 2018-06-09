@@ -40,7 +40,7 @@ func NewNumberList(l []interface{}) ( NumberList, error) {
 		var ok bool
 		r[i], ok = v.(*Number)
 		if !ok {
-      return nil, fmt.Errorf("list element at index %d is not a Number\n", i)
+			return nil, fmt.Errorf("list element at index %d is not a Number\n", i)
 		}
 	}
 
@@ -50,15 +50,15 @@ func NewNumberList(l []interface{}) ( NumberList, error) {
 func (l NumberList) Eql(o interface{}) bool {
 	b, ok := o.( NumberList)
 	if !ok {
-    return false
+		return false
 	}
 
-  if len(l) != len(b) {
+	if len(l) != len(b) {
 		return false
 	}
 
 	for i,v := range l {
-    if v.Cmp(b[i]) != 0 {
+		if v.Cmp(b[i]) != 0 {
 		  return false
 		}
 	}
@@ -131,4 +131,32 @@ func evalBinaryOpNumberList(op rune, a, b NumberList) (r NumberList, err error) 
 	}
 	return
 }
-/* vim: set filetype=go :*/
+
+func listReverseNumber(l interface{}) (l2 interface{}, err error) {
+
+	ll := l.( NumberList)
+
+	ll2 := make( NumberList, len(ll))
+	for i, v := range ll {
+		ll2[len(ll)-i-1] = cloneNumber(v)
+	}
+
+	l2 = ll2
+
+	return
+}
+
+func listRepeatNumber(e *Number, n *big.Int) (l NumberList, err error) {
+	i := int(n.Uint64())
+
+	if i < 0 {
+		return nil, fmt.Errorf("Repeat count must be positive")
+	}
+
+	l = make( NumberList, i)
+	for j := range l {
+		l[j] = cloneNumber(e)
+	}
+
+	return
+}
