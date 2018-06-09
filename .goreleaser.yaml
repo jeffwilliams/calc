@@ -1,0 +1,14 @@
+builds:
+  - binary: calc
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - 386
+nfpm:
+  homepage: https://github.com/jeffwilliams/calc
+  maintainer: Jeff Williams <jeff.williams@gmail.com>
+  description: Terminal-based calculator for Linux 
+  formats:
+    - deb
+  

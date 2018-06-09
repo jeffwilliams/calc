@@ -28,3 +28,4 @@ Some things that would be nice to have:
     > def ipv4_to_hex(v) "Convert a list representing an IPv4 address to integer" unbytes(lrev(v))
     Error: last line:1:1 (0): rule "def statement": Parameter 1 is invalid: expected main.BigIntList but got *big.Float
 
+  * Add License
