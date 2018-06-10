@@ -49,6 +49,9 @@ func numEql(a, b interface{}) bool {
 			// a is an int and b is not.
 			return false
 		}
+		if aint == nil && bint == nil {
+			return true
+		}
 		return 0 == aint.Cmp(bint)
 	} else {
 		aflt := a.(*big.Float)
@@ -56,6 +59,9 @@ func numEql(a, b interface{}) bool {
 		if !ok {
 			// a is a float and b is an int
 			return false
+		}
+		if aflt == nil && bflt == nil {
+			return true
 		}
 		acpy := big.NewFloat(0).Copy(aflt)
 		return acpy.Sub(aflt, bflt).Abs(acpy).Cmp(smallFloat) < 0
@@ -181,33 +187,33 @@ func TestCalc(t *testing.T) {
 
 		{
 			name:   "add_two_flts",
-			input:  "1+1",
-			output: big.NewInt(2),
+			input:  "1.0+1.0",
+			output: big.NewFloat(2),
 		},
 		{
 			name:   "add_two_flts_lspace",
-			input:  " 1+1",
-			output: big.NewInt(2),
+			input:  " 1.0+1.0",
+			output: big.NewFloat(2),
 		},
 		{
 			name:   "add_two_flts_rspace",
-			input:  "1+1 ",
-			output: big.NewInt(2),
+			input:  "1.0+1.0 ",
+			output: big.NewFloat(2),
 		},
 		{
 			name:   "add_two_flts_inspace",
-			input:  "1 +1",
-			output: big.NewInt(2),
+			input:  "1.0 +1.0",
+			output: big.NewFloat(2),
 		},
 		{
 			name:   "add_two_flts_inspace_r",
-			input:  "1+ 1",
-			output: big.NewInt(2),
+			input:  "1.0+ 1.0",
+			output: big.NewFloat(2),
 		},
 		{
 			name:   "add_two_flts_manyspace",
-			input:  "  1  +  1  ",
-			output: big.NewInt(2),
+			input:  "  1.0  +  1.0  ",
+			output: big.NewFloat(2),
 		},
 
 		{
@@ -220,6 +226,12 @@ func TestCalc(t *testing.T) {
 			name:   "add_flt_int",
 			input:  " 1.0 +1",
 			output: big.NewFloat(2.0),
+		},
+
+		{
+			name:   "add_int_list_flt_list",
+			input:  "[1]+[1.0]",
+			output: BigFloatList{big.NewFloat(2)},
 		},
 
 		{
@@ -328,6 +340,113 @@ func TestCalc(t *testing.T) {
 			name:   "mul_div_flt",
 			input:  "5.0*4.0/10.0",
 			output: big.NewFloat(2),
+		},
+
+		{
+			name:   "add_as_function_int",
+			input:  "+(1,2)",
+			output: big.NewInt(3),
+		},
+		{
+			name:   "add_as_function_flt",
+			input:  "+(1.0,2.0)",
+			output: big.NewFloat(3),
+		},
+		{
+			name:   "add_as_function_int_list",
+			input:  "+([1,1],[2,2])",
+			output: BigIntList{big.NewInt(3), big.NewInt(3)},
+		},
+		{
+			name:   "add_as_function_flt_list",
+			input:  "+([1,1],[2.0,2.0])",
+			output: BigFloatList{big.NewFloat(3), big.NewFloat(3)},
+		},
+
+		{
+			name:   "sub_as_function_int",
+			input:  "-(2,1)",
+			output: big.NewInt(1),
+		},
+		{
+			name:   "sub_as_function_flt",
+			input:  "-(2.0,1.0)",
+			output: big.NewFloat(1),
+		},
+		{
+			name:   "sub_as_function_int_list",
+			input:  "-([2,2],[1,1])",
+			output: BigIntList{big.NewInt(1), big.NewInt(1)},
+		},
+		{
+			name:   "sub_as_function_flt_list",
+			input:  "-([2.0,2.0],[1,1])",
+			output: BigFloatList{big.NewFloat(1), big.NewFloat(1)},
+		},
+
+		{
+			name:   "mul_as_function_int",
+			input:  "*(1,2)",
+			output: big.NewInt(2),
+		},
+		{
+			name:   "mul_as_function_flt",
+			input:  "*(1.0,2.0)",
+			output: big.NewFloat(2),
+		},
+		{
+			name:   "mul_as_function_int_list",
+			input:  "*([1,1],[2,2])",
+			output: BigIntList{big.NewInt(2), big.NewInt(2)},
+		},
+		{
+			name:   "mul_as_function_flt_list",
+			input:  "*([1,1],[2.0,2.0])",
+			output: BigFloatList{big.NewFloat(2), big.NewFloat(2)},
+		},
+
+		{
+			name:   "quo_as_function_int",
+			input:  "/(1,2)",
+			output: big.NewInt(0),
+		},
+		{
+			name:   "quo_as_function_flt",
+			input:  "/(1.0,2.0)",
+			output: big.NewFloat(0.5),
+		},
+		{
+			name:   "quo_as_function_int_list",
+			input:  "/([1,1],[2,2])",
+			output: BigIntList{big.NewInt(0), big.NewInt(0)},
+		},
+		{
+			name:   "quo_as_function_flt_list",
+			input:  "/([1,1],[2.0,2.0])",
+			output: BigFloatList{big.NewFloat(0.5), big.NewFloat(0.5)},
+		},
+
+		{
+			name:   "exp_as_function_int",
+			input:  "^(2,3)",
+			output: big.NewInt(8),
+		},
+		{
+			name:   "exp_as_function_flt",
+			input:  "^(2.0,3.0)",
+			output: (*big.Float)(nil),
+			err:    true,
+		},
+		{
+			name:   "exp_as_function_int_list",
+			input:  "^([2,1],[3,3])",
+			output: BigIntList{big.NewInt(8), big.NewInt(1)},
+		},
+		{
+			name:   "exp_as_function_flt_list",
+			input:  "^([2.0,1.0],[3.0,3.0])",
+			output: BigFloatList{},
+			err:    true,
 		},
 
 		{
@@ -479,6 +598,16 @@ func TestCalc(t *testing.T) {
 			name:   "vec_sub",
 			input:  "[3,4]-[2,2]",
 			output: BigIntList{big.NewInt(1), big.NewInt(2)},
+		},
+		{
+			name:   "list_map",
+			input:  "map([25.0,9.0,81.0], sqrt)",
+			output: BigFloatList{big.NewFloat(5), big.NewFloat(3), big.NewFloat(9)},
+		},
+		{
+			name:   "list_reduce",
+			input:  "reduce([1,2,3], +, 0)",
+			output: big.NewInt(6),
 		},
 		/*{
 			name:  "wrong_list_len",

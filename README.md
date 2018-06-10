@@ -169,6 +169,26 @@ One might define a convenience function for the little endian conversion above, 
 
 Commonly used user-defined functions (such as `hex_to_ipv4`) and variables may be defined in `~/.calcrc`, which is loaded on startup. 
 
+Functions, while not fully first-class, can be assigned to variables and passed to functions. This is useful when applying a function
+to a list of values using `map`:
+
+    > map([25.0,9.0,81.0], sqrt)
+    [5, 3, 9]
+
+The basic arithmetic operators are internally defined as functions, and may be called as functions:
+
+    > 1+2
+    3
+    > +(1,2)
+    3
+
+This comes in handy when reducing a list:
+
+    > reduce([1,2,3], +, 0)
+    6
+
+Note that the unary negation function is `neg` not `-`. The `-` is used for subtraction.
+
 Calc supports readline-like line editing: UP moves to the previous expression, arrow keys, home, end, CTRL-A, CTRL-E, CTRL-U, CTRL-R, and CTRL-K all behave as expected. On a blank line the TAB key auto-completes against defined functions, variables, and keywords.
 
 Use CTRL-C to exit.

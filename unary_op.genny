@@ -1,0 +1,22 @@
+package main
+
+import (
+  "github.com/cheekybits/genny/generic"
+)
+
+type Op generic.Type
+
+func Op(a interface{}) (interface{}, error) {
+	switch at := a.(type) {
+	case *big.Int:
+		return OpBigInt(at)
+	case *big.Float:
+		return OpBigFloat(at)
+	case BigIntList:
+		return at.Op(at)
+	case BigFloatList:
+		return at.Op(at)
+	}
+	return nil, fmt.Errorf("Unsupported type for operator")
+}
+

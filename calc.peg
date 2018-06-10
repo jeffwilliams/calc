@@ -130,7 +130,8 @@ Paren "parenthesis expression" <- '(' e:Expr ')' {
   return e, nil
 }
 
-FuncCall "function call" <- name:Identifier _ '(' parms:FuncParms ')' {
+//FuncCall "function call" <- name:Identifier _ '(' parms:FuncParms ')' {
+FuncCall "function call" <- name:FunctionName _ '(' parms:FuncParms ')' {
 	nm := name.(string)
 	if parms == nil {
     parms = []interface{}{}
@@ -187,11 +188,18 @@ List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
 	}
 }
 
-Variable <- id:Identifier {
-   return Resolve(id.(string))
+//Variable <- id:(Identifier) {
+Variable <- id:(Identifier / FunctionName) {
+	resolved, err := Resolve(id.(string))
+	return resolved, err
 }
 
 Identifier <- [a-zA-Z_] [a-zA-Z0-9_]* {
+  return string(c.text), nil
+}
+
+// Allow the operators +,-,*,/ to be a function name
+FunctionName <- ( [a-zA-Z_] [a-zA-Z0-9_]* / "+" / "-" / "*" / "/" / "^" / "&" / "|" / "~" ) {
   return string(c.text), nil
 }
 

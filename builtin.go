@@ -9,6 +9,106 @@ import (
 )
 
 // builtin funcs
+
+/*** Operators ***/
+
+func ExpBigInt(a, b *big.Int) (r *big.Int, err error) {
+	r = a.Exp(a, b, nil)
+	return
+}
+
+func AndBigInt(a, b *big.Int) (r *big.Int, err error) {
+	r = a.And(a, b)
+	return
+}
+
+func NotBigInt(a *big.Int) (r *big.Int, err error) {
+	r = a.Not(a)
+	return
+}
+
+func OrBigInt(a, b *big.Int) (r *big.Int, err error) {
+	r = a.Or(a, b)
+	return
+}
+
+func ExpBigFloat(a, b *big.Float) (r *big.Float, err error) {
+	return nil, fmt.Errorf("exponentiation is only defined for integer expressions")
+}
+
+func AndBigFloat(a, b *big.Float) (r *big.Float, err error) {
+	return nil, fmt.Errorf("the 'and' operation is only defined for integer expressions")
+}
+
+func NotBigFloat(a *big.Float) (r *big.Float, err error) {
+	return nil, fmt.Errorf("the 'not' operation is only defined for integer expressions")
+}
+
+func OrBigFloat(a, b *big.Float) (r *big.Float, err error) {
+	return nil, fmt.Errorf("the 'or' operation is only defined for integer expressions")
+}
+
+func (l BigIntList) Exp(a, b BigIntList) (n BigIntList, err error) {
+	f := func(self, a, b *big.Int) *big.Int {
+		return self.Exp(a, b, big.NewInt(0))
+	}
+	return l.apply(a, b, f)
+}
+func (l BigIntList) exp(a, b BigIntList) (n BigIntList, err error) {
+	return l.Exp(a, b)
+}
+
+func (l BigIntList) And(a, b BigIntList) (n BigIntList, err error) {
+	return l.apply(a, b, (*big.Int).And)
+}
+func (l BigIntList) and(a, b BigIntList) (n BigIntList, err error) {
+	return l.And(a, b)
+}
+
+func (l BigIntList) Not(a BigIntList) (n BigIntList, err error) {
+	return l.applyMonadic(a, (*big.Int).Not)
+}
+func (l BigIntList) not(a BigIntList) (n BigIntList, err error) {
+	return l.Not(a)
+}
+
+func (l BigIntList) Or(a, b BigIntList) (n BigIntList, err error) {
+	return l.apply(a, b, (*big.Int).Or)
+}
+func (l BigIntList) or(a, b BigIntList) (n BigIntList, err error) {
+	return l.Or(a, b)
+}
+
+func (l BigFloatList) Exp(a, b BigFloatList) (n BigFloatList, err error) {
+	return nil, fmt.Errorf("exponentiation is only defined for integer expressions")
+}
+func (l BigFloatList) exp(a, b BigFloatList) (n BigFloatList, err error) {
+	return l.Exp(a, b)
+}
+
+func (l BigFloatList) And(a, b BigFloatList) (n BigFloatList, err error) {
+	return nil, fmt.Errorf("the 'and' operation is only defined for integer expressions")
+}
+func (l BigFloatList) and(a, b BigFloatList) (n BigFloatList, err error) {
+	return l.And(a, b)
+}
+
+func (l BigFloatList) Not(a BigFloatList) (n BigFloatList, err error) {
+	return nil, fmt.Errorf("the 'not' operation is only defined for integer expressions")
+}
+func (l BigFloatList) not(a BigFloatList) (n BigFloatList, err error) {
+	return l.Not(a)
+}
+
+func (l BigFloatList) Or(a, b BigFloatList) (n BigFloatList, err error) {
+	return nil, fmt.Errorf("the 'or' operation is only defined for integer expressions")
+}
+func (l BigFloatList) or(a, b BigFloatList) (n BigFloatList, err error) {
+	return l.Or(a, b)
+}
+
+/*** General ***/
+
 func binom(n, k *big.Int) (*big.Int, error) {
 	b := big.NewInt(0)
 	return b.Binomial(n.Int64(), k.Int64()), nil
@@ -126,6 +226,36 @@ func unbytes(l BigIntList) (*big.Int, error) {
 		bytes[i] = byte(n)
 	}
 	return big.NewInt(0).SetBytes(bytes), nil
+}
+
+func listMap(l interface{}, fn Func) (interface{}, error) {
+	switch t := l.(type) {
+	case BigIntList:
+		return listMapbigIntList(t, fn)
+	case BigFloatList:
+		return listMapbigFloatList(t, fn)
+	}
+
+	return nil, fmt.Errorf("Unsupported type for parameter 1")
+}
+
+func listReduce(l interface{}, fn Func, memo interface{}) (interface{}, error) {
+	switch t := l.(type) {
+	case BigIntList:
+		m, ok := memo.(*big.Int)
+		if !ok {
+			return nil, fmt.Errorf("Type of initial value does not match type contained in list (list contains ints)")
+		}
+		return listReducebigIntList(t, fn, m)
+	case BigFloatList:
+		m, ok := memo.(*big.Float)
+		if !ok {
+			return nil, fmt.Errorf("Type of initial value does not match type contained in list (list contains floats)")
+		}
+		return listReducebigFloatList(t, fn, m)
+	}
+
+	return nil, fmt.Errorf("Unsupported type for parameter 1")
 
 }
 
@@ -177,6 +307,19 @@ func registerStdlibMath() {
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+
+	/*** Operators ***/
+	RegisterBuiltin("+", add, "return p1 + p2")
+	RegisterBuiltin("-", sub, "return p1 - p2")
+	RegisterBuiltin("*", mul, "return p1 * p2")
+	RegisterBuiltin("/", quo, "return p1 / p2")
+	RegisterBuiltin("^", exp, "return p1 ^ p2")
+	RegisterBuiltin("&", and, "return p1 & p2 (bitwise and)")
+	RegisterBuiltin("|", or, "return p1 | p2 (bitwise or)")
+	RegisterBuiltin("~", not, "return p1 | p2 (bitwise not)")
+	RegisterBuiltin("neg", neg, "return -p1 ")
+
+	/*** General functions ***/
 	RegisterBuiltin("binom", binom, "binmomial coeffient of (p1, p2)")
 	RegisterBuiltin("choose", binom, "p1 choose p2. Same as binom")
 	RegisterBuiltin("bit", bit, "return the value of bit p2 in p1, counting from 0")
@@ -189,5 +332,7 @@ func init() {
 	RegisterBuiltin("lrev", listReverse, "return a copy of list p1 with elements in reverse order")
 	RegisterBuiltin("lrp", listRepeat, "return a list consisting of p1 repeated p2 times")
 	RegisterBuiltin("unbytes", unbytes, "treat the list as a list of bytes and convert it to an integer")
+	RegisterBuiltin("map", listMap, "return a new list which is the result of applying the function p2 to each element in p1")
+	RegisterBuiltin("reduce", listReduce, "apply a dyadic function p2 to each element in the list p1 and an accumulator (having initial value p3), returning the final value of the accumulator")
 	registerStdlibMath()
 }

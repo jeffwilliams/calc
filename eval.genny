@@ -7,29 +7,28 @@ import (
 
 type Number generic.Type
 
-func evalBinaryOpNumber(op rune, a, b *Number) (r *Number, err error) {
-	switch op {
-	case '+':
-		r = a.Add(a, b)
-	case '-':
-		r = a.Sub(a, b)
-	case '*':
-		r = a.Mul(a, b)
-	case '/':
-		r = a.Quo(a, b)
-	default:
-		err = fmt.Errorf("evalBinaryOpNumber: Invalid operator %s", op)
-	}
+func AddNumber(a, b *Number) (r *Number, err error) {
+	r = a.Add(a, b)
 	return
 }
 
-func evalUnaryOpNumber(op rune, a *Number) (r *Number, err error) {
-	switch op {
-	case '-':
-		r = a.Neg(a)
-	default:
-		err = fmt.Errorf("evalUnaryOpNumber: Invalid operator %s", op)
-	}
+func SubNumber(a, b *Number) (r *Number, err error) {
+	r = a.Sub(a, b)
+	return
+}
+
+func MulNumber(a, b *Number) (r *Number, err error) {
+	r = a.Mul(a, b)
+	return
+}
+
+func QuoNumber(a, b *Number) (r *Number, err error) {
+	r = a.Quo(a, b)
+	return
+}
+
+func NegNumber(a *Number) (r *Number, err error) {
+	r = a.Neg(a)
 	return
 }
 
@@ -81,11 +80,19 @@ func (l NumberList) String() string {
 
 func (l NumberList) apply(a, b NumberList, fn func(self, a, b *Number) *Number) ( NumberList, error) {
   if len(a) != len(b) {
-		return nil, fmt.Errorf("NumberList.Add: lists are different lengths")
+		return nil, fmt.Errorf("NumberList.apply: lists are different lengths")
 	}
 
 	for i,v := range a {
     l[i] = fn(v, v, b[i])
+	}
+
+	return l, nil
+}
+
+func (l NumberList) applyMonadic(a NumberList, fn func(self, a *Number) *Number) ( NumberList, error) {
+	for i,v := range a {
+    l[i] = fn(v, a[i])
 	}
 
 	return l, nil
@@ -96,40 +103,44 @@ func (l NumberList) Add(a, b NumberList) (n NumberList, err error) {
 	return l.apply(a, b, (*Number).Add)
 }
 
+func (l NumberList) add(a, b NumberList) (n NumberList, err error) {
+	return l.Add(a, b)
+}
+
 func (l NumberList) Sub(a, b NumberList) (n NumberList, err error) {
 	return l.apply(a, b, (*Number).Sub)
+}
+
+func (l NumberList) sub(a, b NumberList) (n NumberList, err error) {
+	return l.Sub(a, b)
 }
 
 func (l NumberList) Mul(a, b NumberList) (n NumberList, err error) {
 	return l.apply(a, b, (*Number).Mul)
 }
 
+func (l NumberList) mul(a, b NumberList) (n NumberList, err error) {
+	return l.Mul(a, b)
+}
+
 func (l NumberList) Quo(a, b NumberList) (n NumberList, err error) {
 	return l.apply(a, b, (*Number).Quo)
 }
 
-func (l NumberList) Neg(a NumberList) NumberList {
+func (l NumberList) quo(a, b NumberList) (n NumberList, err error) {
+	return l.Quo(a, b)
+}
+
+func (l NumberList) Neg(a NumberList) (n NumberList, err error) {
 	for i,v := range a {
     l[i] = v.Neg(v)
 	}
 
-	return l
+	return l, nil
 }
 
-func evalBinaryOpNumberList(op rune, a, b NumberList) (r NumberList, err error) {
-	switch op {
-	case '+':
-		r, err = a.Add(a, b)
-	case '-':
-		r, err = a.Sub(a, b)
-	case '*':
-		r, err = a.Mul(a, b)
-	case '/':
-		r, err = a.Quo(a, b)
-	default:
-		err = fmt.Errorf("evalBinaryOpNumber: Invalid operator %s", op)
-	}
-	return
+func (l NumberList) neg(a NumberList) (n NumberList, err error) {
+	return l.Neg(a)
 }
 
 func listReverseNumber(l interface{}) (l2 interface{}, err error) {
@@ -158,5 +169,43 @@ func listRepeatNumber(e *Number, n *big.Int) (l NumberList, err error) {
 		l[j] = cloneNumber(e)
 	}
 
+	return
+}
+
+func listMapNumberList(l NumberList, fn Func) (l2 interface{}, err error) {
+	ll2 := make( NumberList, len(l))
+
+	for i, v := range l {
+		var intf interface{}
+		intf, err = fn.Call([]interface{}{v})
+		if err != nil {
+			return
+		}
+		if t, ok := intf.( *Number); ok {
+			ll2[i] = t
+		} else {
+			return nil, fmt.Errorf("Function passed to map must return the same type that the list map is being applied to contains")
+		}
+	}
+  
+  l2 = ll2
+  
+  return
+}
+
+func listReduceNumberList(l NumberList, fn Func, memo *Number) (n *Number, err error) {
+	for _, v := range l {
+		var intf interface{}
+    intf, err = fn.Call([]interface{}{memo, v})
+    if err != nil {
+      return
+    }
+    if t, ok := intf.( *Number); ok {
+      memo = t
+    } else {
+      return nil, fmt.Errorf("Function passed to reduce must return the same type that the list reduce is being applied to contains")
+    }
+	}
+	n = memo
 	return
 }
