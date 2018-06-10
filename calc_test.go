@@ -8,13 +8,25 @@ import (
 var smallFloat = big.NewFloat(0.00001)
 
 func eql(a, b interface{}) bool {
-	switch a.(type) {
+	switch t := a.(type) {
 	case BigIntList:
 		return listEql(a, b)
 	case BigFloatList:
 		return listEql(a, b)
 	case []interface{}:
-		return listEql(a, b)
+		bl, ok := b.([]interface{})
+		if !ok {
+			return false
+		}
+		if len(t) != len(bl) {
+			return false
+		}
+		for i, v := range bl {
+			if !eql(v, t[i]) {
+				return false
+			}
+		}
+		return true
 	default:
 		return numEql(a, b)
 	}
@@ -609,11 +621,37 @@ func TestCalc(t *testing.T) {
 			input:  "reduce([1,2,3], +, 0)",
 			output: big.NewInt(6),
 		},
-		/*{
-			name:  "wrong_list_len",
-			input: "[5,2]+[3]",
-			err:   true,
-		},*/
+		{
+			name:   "wrong_list_len",
+			input:  "[5,2]+[3]",
+			output: BigIntList{},
+			err:    true,
+		},
+		{
+			name:   "multiple_statements",
+			input:  "5;6",
+			output: []interface{}{big.NewInt(5), big.NewInt(6)},
+		},
+		{
+			name:   "var_cloned_when_read",
+			input:  "v=1;v+1+v",
+			output: []interface{}{big.NewInt(3)},
+		},
+		{
+			name:   "var_cloned_when_read2",
+			input:  "v=1;v=1+v;v",
+			output: []interface{}{nil, big.NewInt(2)},
+		},
+		{
+			name:   "var_cloned_in_fn_call",
+			input:  "v=1;def f(x) 1+x; f(v); v",
+			output: []interface{}{nil, big.NewInt(2), big.NewInt(1)},
+		},
+		{
+			name:   "var_cloned_when_read_list",
+			input:  "v=[1];v+[1]+v",
+			output: []interface{}{BigIntList{big.NewInt(3)}},
+		},
 	}
 
 	fn0 := func() (*big.Int, error) {

@@ -143,7 +143,9 @@ func Call(name string, parms []interface{}) (result interface{}, err error) {
 	v, err := ResolveStrict(name)
 	if err == nil {
 		if f, ok := v.(Func); ok {
-			return f.Call(parms)
+			result, err = f.Call(parms)
+			//result = clone(result)
+			return
 		}
 	}
 

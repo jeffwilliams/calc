@@ -20,3 +20,33 @@ func clonebigInt(i *big.Int) *big.Int {
 func clonebigFloat(f *big.Float) *big.Float {
 	return cloneFloat(f)
 }
+
+func cloneIntList(l BigIntList) BigIntList {
+	l2 := make(BigIntList, len(l))
+	for i, v := range l {
+		l2[i] = cloneInt(v)
+	}
+	return l2
+}
+
+func cloneFloatList(l BigFloatList) BigFloatList {
+	l2 := make(BigFloatList, len(l))
+	for i, v := range l {
+		l2[i] = cloneFloat(v)
+	}
+	return l2
+}
+
+func clone(v interface{}) interface{} {
+	switch t := v.(type) {
+	case *big.Int:
+		return cloneInt(t)
+	case *big.Float:
+		return cloneFloat(t)
+	case BigIntList:
+		return cloneIntList(t)
+	case BigFloatList:
+		return cloneFloatList(t)
+	}
+	return v
+}

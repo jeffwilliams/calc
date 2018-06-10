@@ -226,7 +226,7 @@ SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
 	return nil, nil
 }
 
-DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:([^,]+) {
+DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:([^,;]+) {
   
 	buf := charClassRepetitionToByteSlice(expr)
 

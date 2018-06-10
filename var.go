@@ -37,11 +37,11 @@ func Resolve(varName string) (interface{}, error) {
 // ResolveStrict only resolves variables, not functions.
 func ResolveStrict(varName string) (interface{}, error) {
 	if v, ok := LocalVars[varName]; ok {
-		return v, nil
+		return clone(v), nil
 	}
 
 	if v, ok := GlobalVars[varName]; ok {
-		return v, nil
+		return clone(v), nil
 	}
 
 	return big.NewInt(1), NewErrUnboundVar(varName)
