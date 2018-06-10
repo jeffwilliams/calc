@@ -106,6 +106,7 @@ Help lists the defined functions:
     hypot(p1, p2): calculates sqrt(p1*p1 + p2*p2). This function only has the precision of a float64.
     j0(p1): order zero bessel function of the first kind. This function only has the precision of a float64.
     j1(p1): order one bessel function of the first kind. This function only has the precision of a float64.
+    lbs_n_oz_to_kg(p1, p2): convert pounds and ounces to kg
     li(p1, p2): return element at index p2 in list p1
     llen(p1): return length of a list
     log(p1): natural logarithm. This function only has the precision of a float64.
