@@ -74,6 +74,12 @@ Functions may also be defined:
 Help lists the defined functions:
 
     > help
+    &(p1, p2): return p1 & p2 (bitwise and)
+    *(p1, p2): return p1 * p2
+    +(p1, p2): return p1 + p2
+    -(p1, p2): return p1 - p2
+    /(p1, p2): return p1 / p2
+    ^(p1, p2): return p1 ^ p2
     abs(p1): absolute value. This function only has the precision of a float64.
     acos(p1): arccosine. This function only has the precision of a float64.
     acosh(p1): inverse hyperbolic cosine. This function only has the precision of a float64.
@@ -100,7 +106,6 @@ Help lists the defined functions:
     hypot(p1, p2): calculates sqrt(p1*p1 + p2*p2). This function only has the precision of a float64.
     j0(p1): order zero bessel function of the first kind. This function only has the precision of a float64.
     j1(p1): order one bessel function of the first kind. This function only has the precision of a float64.
-    lbs_n_oz_to_kg(p1, p2): convert pounds and ounces to kg
     li(p1, p2): return element at index p2 in list p1
     llen(p1): return length of a list
     log(p1): natural logarithm. This function only has the precision of a float64.
@@ -108,7 +113,10 @@ Help lists the defined functions:
     log2(p1): base-2 logarithm. This function only has the precision of a float64.
     lrev(p1): return a copy of list p1 with elements in reverse order
     lrp(p1, p2): return a list consisting of p1 repeated p2 times
+    map(p1, p2): return a new list which is the result of applying the function p2 to each element in p1
+    neg(p1): return -p1 
     now(): return the number of milliseconds since epoch
+    reduce(p1, p2, p3): apply a dyadic function p2 to each element in the list p1 and an accumulator (having initial value p3), returning the final value of the accumulator
     roll(p1, p2): roll p1 dice each having p2 sides and sum the outcomes
     sin(p1): sine. This function only has the precision of a float64.
     sinh(p1): hyperbolic sine. This function only has the precision of a float64.
@@ -118,6 +126,9 @@ Help lists the defined functions:
     unbytes(p1): treat the list as a list of bytes and convert it to an integer
     y0(p1): order zero bessel function of the second kind. This function only has the precision of a float64.
     y1(p1): order one bessel function of the second kind. This function only has the precision of a float64.
+    |(p1, p2): return p1 | p2 (bitwise or)
+    ~(p1): return p1 | p2 (bitwise not)
+
 
 Note that `lbs_n_oz_to_kg` is in there. There are a number of predefined functions. The ones that apply to decimal numbers only support double precision: 
 
