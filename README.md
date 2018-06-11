@@ -205,6 +205,10 @@ Calc supports readline-like line editing: UP moves to the previous expression, a
 
 Use CTRL-C to exit.
 
+# Install
+
+Grab the latest archived binary from the [releases](https://github.com/jeffwilliams/calc/releases) page and unpack it.
+
 # Building
 
 Calc requires the Go programming language version 1.8 to build (Needs big.Float to implement fmt.Scanner). First, install Go, then:
