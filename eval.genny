@@ -32,6 +32,51 @@ func NegNumber(a *Number) (r *Number, err error) {
 	return
 }
 
+func LtNumber(a, b *Number) (r *big.Int, err error) {
+  r = big.NewInt(0)
+  v := a.Cmp(b)
+	if v < 0 {
+	  r.SetInt64(1)
+	}
+	return
+}
+
+func LteNumber(a, b *Number) (r *big.Int, err error) {
+  r = big.NewInt(0)
+  v := a.Cmp(b)
+	if v <= 0 {
+	  r.SetInt64(1)
+	}
+	return
+}
+
+func GtNumber(a, b *Number) (r *big.Int, err error) {
+  r = big.NewInt(0)
+  v := a.Cmp(b)
+	if v > 0 {
+	  r.SetInt64(1)
+	}
+	return
+}
+
+func GteNumber(a, b *Number) (r *big.Int, err error) {
+  r = big.NewInt(0)
+  v := a.Cmp(b)
+	if v >= 0 {
+	  r.SetInt64(1)
+	}
+	return
+}
+
+func EqlNumber(a, b *Number) (r *big.Int, err error) {
+  r = big.NewInt(0)
+  v := a.Cmp(b)
+	if v == 0 {
+	  r.SetInt64(1)
+	}
+	return
+}
+
 func NewNumberList(l []interface{}) ( NumberList, error) {
   r := make( NumberList, len(l))
 
@@ -129,6 +174,46 @@ func (l NumberList) Quo(a, b NumberList) (n NumberList, err error) {
 
 func (l NumberList) quo(a, b NumberList) (n NumberList, err error) {
 	return l.Quo(a, b)
+}
+
+func (l NumberList) Lt(a, b NumberList) (n *big.Int, err error) {
+	return nil, fmt.Errorf("relational operators are not defined for lists")
+}
+
+func (l NumberList) lt(a, b NumberList) (n *big.Int, err error) {
+	return l.Lt(a, b)
+}
+
+func (l NumberList) Lte(a, b NumberList) (n *big.Int, err error) {
+	return nil, fmt.Errorf("relational operators are not defined for lists")
+}
+
+func (l NumberList) lte(a, b NumberList) (n *big.Int, err error) {
+	return l.Lte(a, b)
+}
+
+func (l NumberList) Gt(a, b NumberList) (n *big.Int, err error) {
+	return nil, fmt.Errorf("relational operators are not defined for lists")
+}
+
+func (l NumberList) gt(a, b NumberList) (n *big.Int, err error) {
+	return l.Gt(a, b)
+}
+
+func (l NumberList) Gte(a, b NumberList) (n *big.Int, err error) {
+	return nil, fmt.Errorf("relational operators are not defined for lists")
+}
+
+func (l NumberList) gte(a, b NumberList) (n *big.Int, err error) {
+	return l.Gte(a, b)
+}
+
+func (l NumberList) eql(o interface{}) (n *big.Int, err error) {
+  n = big.NewInt(0)
+	if l.Eql(o) {
+	  n.SetInt64(1)
+	}
+	return
 }
 
 func (l NumberList) Neg(a NumberList) (n NumberList, err error) {
