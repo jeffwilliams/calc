@@ -7,7 +7,7 @@ import (
 
 var smallFloat = big.NewFloat(0.00001)
 
-func eql(a, b interface{}) bool {
+func teql(a, b interface{}) bool {
 	switch t := a.(type) {
 	case BigIntList:
 		return listEql(a, b)
@@ -22,7 +22,7 @@ func eql(a, b interface{}) bool {
 			return false
 		}
 		for i, v := range bl {
-			if !eql(v, t[i]) {
+			if !teql(v, t[i]) {
 				return false
 			}
 		}
@@ -353,6 +353,31 @@ func TestCalc(t *testing.T) {
 			input:  "5.0*4.0/10.0",
 			output: big.NewFloat(2),
 		},
+		{
+			name:   "prec_mul_add",
+			input:  "1+2*5",
+			output: big.NewInt(11),
+		},
+		{
+			name:   "prec_mul_add_2",
+			input:  "2*5+1",
+			output: big.NewInt(11),
+		},
+		{
+			name:   "prec_exp_mul_add",
+			input:  "1+2*2^3",
+			output: big.NewInt(17),
+		},
+		{
+			name:   "prec_exp_mul_add",
+			input:  "1+2^3*2",
+			output: big.NewInt(17),
+		},
+		{
+			name:   "prec_and_or",
+			input:  "0b1&0b1|0b0&0b0",
+			output: big.NewInt(1),
+		},
 
 		{
 			name:   "add_as_function_int",
@@ -496,6 +521,31 @@ func TestCalc(t *testing.T) {
 			name:   "bitwise_not_and_add",
 			input:  "~4 + 5",
 			output: big.NewInt(0),
+		},
+		{
+			name:   "lt",
+			input:  "4<5;4<4;4<3",
+			output: []interface{}{big.NewInt(1), big.NewInt(0), big.NewInt(0)},
+		},
+		{
+			name:   "lte",
+			input:  "4<=5;4<=4;4<=3",
+			output: []interface{}{big.NewInt(1), big.NewInt(1), big.NewInt(0)},
+		},
+		{
+			name:   "gt",
+			input:  "4>5;4>4;4>3",
+			output: []interface{}{big.NewInt(0), big.NewInt(0), big.NewInt(1)},
+		},
+		{
+			name:   "gte",
+			input:  "4>=5;4>=4;4>=3",
+			output: []interface{}{big.NewInt(0), big.NewInt(1), big.NewInt(1)},
+		},
+		{
+			name:   "eql",
+			input:  "4=5;4=4",
+			output: []interface{}{big.NewInt(0), big.NewInt(1)},
 		},
 
 		{
@@ -682,7 +732,7 @@ func TestCalc(t *testing.T) {
 				t.Fatalf("expected error but none occurred")
 			}
 
-			if !eql(parsed, tc.output) {
+			if !teql(parsed, tc.output) {
 				t.Fatalf("expected '%v' (type %T) but got '%v' (type %T)", tc.output, tc.output, parsed, parsed)
 			}
 

@@ -57,23 +57,33 @@ func upcast(a, b interface{}) (an, bn interface{}, isInt bool) {
 // causes the entire evaluation to be converted to a Float. Note that the evaluated
 // portions up to that point may have been calculated using integer arithmetic; this
 // may lead to odd behavior for division.
-func evalBinaryOp(op rune, a, b interface{}) (r interface{}, err error) {
+func evalBinaryOp(op string, a, b interface{}) (r interface{}, err error) {
 
 	switch op {
-	case '+':
+	case "+":
 		return add(a, b)
-	case '-':
+	case "-":
 		return sub(a, b)
-	case '*':
+	case "*":
 		return mul(a, b)
-	case '/':
+	case "/":
 		return quo(a, b)
-	case '^':
+	case "^":
 		return exp(a, b)
-	case '&':
+	case "&":
 		return and(a, b)
-	case '|':
+	case "|":
 		return or(a, b)
+	case "<":
+		return lt(a, b)
+	case ">":
+		return gt(a, b)
+	case "=":
+		return eql(a, b)
+	case "<=":
+		return lte(a, b)
+	case ">=":
+		return gte(a, b)
 	}
 
 	return nil, fmt.Errorf("Unsupported operation %v", op)

@@ -62,7 +62,7 @@
 			list := toIfaceSlice(v)
 
 			// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
-			o := rune(list[1].([]uint8)[0])
+			o := string(list[1].([]uint8))
 			acc, err = evalBinaryOp(o, acc, list[3])
 			if err != nil {
 				return acc, err
@@ -98,8 +98,12 @@ Empty "empty line" <- _ {
 	return "", nil
 }
 
-Expr "expression" <- _ n:(Prec2Expr / FuncCallOrParen) _ {
+Expr "expression" <- _ n:(Prec3Expr / FuncCallOrParen) _ {
   return n, nil
+}
+
+Prec3Expr "precedence 3 expression" <- num:Prec2Expr rest:(_ Prec3Op _ Prec2Expr)*  {
+	return handleBinaryOpExpr(num, rest)
 }
 
 Prec2Expr "precedence 2 expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
@@ -203,9 +207,10 @@ FunctionName <- ( [a-zA-Z_] [a-zA-Z0-9_]* / "+" / "-" / "*" / "/" / "^" / "&" / 
   return string(c.text), nil
 }
 
-Prec1Op <- '*' / '/' / '|'
-Prec2Op <- '+' / '-' / '&'
 Prec0Op <- '^' 
+Prec1Op <- '*' / '/' / '&'
+Prec2Op <- '+' / '-' / '|'
+Prec3Op <- ">=" / "<=" / '<' / '>' / '='
 
 _ "spaces" <- [ \t]*
 

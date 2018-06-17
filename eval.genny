@@ -208,9 +208,9 @@ func (l NumberList) gte(a, b NumberList) (n *big.Int, err error) {
 	return l.Gte(a, b)
 }
 
-func (l NumberList) eql(o interface{}) (n *big.Int, err error) {
+func (l NumberList) eql(a, b NumberList) (n *big.Int, err error) {
   n = big.NewInt(0)
-	if l.Eql(o) {
+	if a.Eql(b) {
 	  n.SetInt64(1)
 	}
 	return

@@ -14,7 +14,7 @@ import (
 
 //go:generate sh -c "$GOPATH/bin/pigeon calc.peg > gen_calc.go"
 //go:generate $GOPATH/bin/genny -in eval.genny -out gen_eval.go gen "Number=big.Int,big.Float"
-//go:generate $GOPATH/bin/genny -in op.genny -out gen_op.go gen "Op=add,sub,mul,quo,exp,and,or,lt,lte,gt,gte"
+//go:generate $GOPATH/bin/genny -in op.genny -out gen_op.go gen "Op=add,sub,mul,quo,exp,and,or,lt,lte,gt,gte,eql"
 //go:generate $GOPATH/bin/genny -in unary_op.genny -out gen_unary_op.go gen "Op=not,neg"
 
 var outputBase numberBase = decimalBase
