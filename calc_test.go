@@ -713,6 +713,32 @@ func TestCalc(t *testing.T) {
 			input:  "map([1,3,5],def(x){(x+1)/2})",
 			output: BigIntList{big.NewInt(1), big.NewInt(2), big.NewInt(3)},
 		},
+
+		{
+			name:   "if1",
+			input:  "if(9)",
+			output: big.NewInt(9),
+		},
+		{
+			name:   "if2",
+			input:  "if(1,4,5)",
+			output: big.NewInt(4),
+		},
+		{
+			name:   "if3",
+			input:  "if(0,4,5)",
+			output: big.NewInt(5),
+		},
+		{
+			name:   "if4",
+			input:  "if(0,4,1,2,5)",
+			output: big.NewInt(2),
+		},
+		{
+			name:   "if5",
+			input:  "if(0,4,0,2,5)",
+			output: big.NewInt(5),
+		},
 	}
 
 	fn0 := func() (*big.Int, error) {
