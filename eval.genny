@@ -294,3 +294,24 @@ func listReduceNumberList(l NumberList, fn Func, memo *Number) (n *Number, err e
 	n = memo
 	return
 }
+
+func listFilterNumberList(l NumberList, fn Func) (l2 NumberList, err error) {
+	l2 = make( NumberList, 0)
+
+	for _, v := range l {
+		var intf interface{}
+    intf, err = fn.Call([]interface{}{v})
+    if err != nil {
+      return
+    }
+
+    if t, ok := intf.(*big.Int); ok {
+      if t.Sign() != 0 {
+        l2 = append(l2, v)
+      }
+    } else {
+      return nil, fmt.Errorf("Function passed to reduce must return an integer")
+    }
+	}
+	return
+}

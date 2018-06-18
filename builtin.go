@@ -256,7 +256,17 @@ func listReduce(l interface{}, fn Func, memo interface{}) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf("Unsupported type for parameter 1")
+}
 
+func listFilter(l interface{}, fn Func) (interface{}, error) {
+	switch t := l.(type) {
+	case BigIntList:
+		return listFilterbigIntList(t, fn)
+	case BigFloatList:
+		return listFilterbigFloatList(t, fn)
+	}
+
+	return nil, fmt.Errorf("Unsupported type for parameter 1")
 }
 
 /*** End List functions ***/
@@ -334,5 +344,6 @@ func init() {
 	RegisterBuiltin("unbytes", unbytes, "treat the list as a list of bytes and convert it to an integer")
 	RegisterBuiltin("map", listMap, "return a new list which is the result of applying the function p2 to each element in p1")
 	RegisterBuiltin("reduce", listReduce, "apply a dyadic function p2 to each element in the list p1 and an accumulator (having initial value p3), returning the final value of the accumulator")
+	RegisterBuiltin("filter", listFilter, "apply a predicate function p2 to each element in the list p1, returning a list of the values for which it returned 'true' (that is, nonzero)")
 	registerStdlibMath()
 }

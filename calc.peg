@@ -77,7 +77,34 @@
 		o := rune(op.([]uint8)[0])
 
 		return evalUnaryOp(o, num)
-	}	
+	}
+
+	func handleFuncDef(parms, help, expr interface{}) (*DefinedFunc, error) {
+		buf := charClassRepetitionToByteSlice(expr)
+		
+		// first try parsing the function's body to see if it's valid.
+		// since the body likely contains variables, we'll expect an 
+		// unbound variable error but no other ones that indicate
+		// a parse error.
+		if err := validateFuncDef(parms.([]interface{}), buf); err != nil { 
+			return nil, err
+		}
+		
+		var hlp string
+		if help != nil {
+			hlp = help.([]interface{})[1].(string)
+		}
+		prm := toStringSlice(parms.([]interface{}))
+
+		f := &DefinedFunc{ 
+			name:       "nameless",
+			help:       hlp,
+			paramNames: prm,
+			body:       buf,
+		} 
+
+		return f, nil
+	}
 }
 
 Input "input" <- first:(Block?) rest:((';' Block)*) EOF {
@@ -126,7 +153,7 @@ Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ F
 	return handleBinaryOpExpr(num, rest)
 }
 
-FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / FuncCall / Number / Variable / List ) {
+FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / Lambda / FuncCall / Number / Variable / List ) {
 	return n, nil
 }
 
@@ -141,6 +168,10 @@ FuncCall "function call" <- name:FunctionName _ '(' parms:FuncParms ')' {
     parms = []interface{}{}
 	}
   return Call(nm, parms.([]interface{}))
+}
+
+Lambda "lambda" <- "def" _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ '{' _ expr:([^}]+) _ '}' {
+	return handleFuncDef(parms, help, expr)
 }
 
 FuncParms "function params" <- first:Expr? rest:( ',' Expr )* {
@@ -232,24 +263,14 @@ SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
 }
 
 DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:([^,;]+) {
-  
-	buf := charClassRepetitionToByteSlice(expr)
-
-  // first try parsing the function's body to see if it's valid.
-  // since the body likely contains variables, we'll expect an 
-	// unbound variable error but no other ones that indicate
-	// a parse error.
-	if err := validateFuncDef(parms.([]interface{}), buf); err != nil { 
-	  return nil, err
+	f, err := handleFuncDef(parms, help, expr)
+	if err != nil {
+		return nil, err
 	}
+	
+  nm := name.(string)
 
-	nm := name.(string)
-	var hlp string
-	if help != nil {
-	  hlp = help.([]interface{})[1].(string)
-	}
-	prm := toStringSlice(parms.([]interface{}))
-  RegisterDefined(nm, prm, buf, hlp)
+  RegisterDefined(nm, f.paramNames, f.body, f.help)
 	return nil, nil
 }
 

@@ -702,6 +702,17 @@ func TestCalc(t *testing.T) {
 			input:  "v=[1];v+[1]+v",
 			output: []interface{}{BigIntList{big.NewInt(3)}},
 		},
+
+		{
+			name:   "lambda",
+			input:  "map([1,2,3],def(x){x+1})",
+			output: BigIntList{big.NewInt(2), big.NewInt(3), big.NewInt(4)},
+		},
+		{
+			name:   "lambda2",
+			input:  "map([1,3,5],def(x){(x+1)/2})",
+			output: BigIntList{big.NewInt(1), big.NewInt(2), big.NewInt(3)},
+		},
 	}
 
 	fn0 := func() (*big.Int, error) {
