@@ -23,11 +23,16 @@ func printFuncHelp() {
 		p, ok := v.(NumParamer)
 		if ok {
 			fmt.Printf("%s(", k)
-			for i := 0; i < p.NumParams(); i++ {
-				if i > 0 {
-					fmt.Printf(", ")
+			num := p.NumParams()
+			if num >= 0 {
+				for i := 0; i < p.NumParams(); i++ {
+					if i > 0 {
+						fmt.Printf(", ")
+					}
+					fmt.Printf("p%d", i+1)
 				}
-				fmt.Printf("p%d", i+1)
+			} else {
+				fmt.Printf("...")
 			}
 			fmt.Printf("): %s\n", v.Help())
 		} else {

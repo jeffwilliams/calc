@@ -21,33 +21,35 @@ type BuiltinFunc struct {
 func (f BuiltinFunc) Call(parms []interface{}) (result interface{}, err error) {
 
 	// Validate arity
-	if len(parms) != f.typ.NumIn() {
-		err = fmt.Errorf("Invalid number of params when calling %s: expected %d but got %d", f.name, f.typ.NumIn(), len(parms))
-		return
-	}
+	if !f.typ.IsVariadic() {
+		if len(parms) != f.typ.NumIn() {
+			err = fmt.Errorf("Invalid number of params when calling %s: expected %d but got %d", f.name, f.typ.NumIn(), len(parms))
+			return
+		}
 
-	// Validate parameter types
-	for i := 0; i < f.typ.NumIn(); i++ {
-		p := reflect.TypeOf(parms[i])
-		t := f.typ.In(i)
-		if !p.AssignableTo(t) {
-			// try to upcast from int to float
-			if pi, ok := parms[i].(*big.Int); ok {
-				flt := big.NewFloat(0)
-				flt.SetInt(pi)
-				parms[i] = flt
-				p = reflect.TypeOf(parms[i])
-			}
-
+		// Validate parameter types
+		for i := 0; i < f.typ.NumIn(); i++ {
+			p := reflect.TypeOf(parms[i])
+			t := f.typ.In(i)
 			if !p.AssignableTo(t) {
-				err = fmt.Errorf("Parameter %d is invalid: expected %s but got %s", i+1, t, p)
-				return
+				// try to upcast from int to float
+				if pi, ok := parms[i].(*big.Int); ok {
+					flt := big.NewFloat(0)
+					flt.SetInt(pi)
+					parms[i] = flt
+					p = reflect.TypeOf(parms[i])
+				}
+
+				if !p.AssignableTo(t) {
+					err = fmt.Errorf("Parameter %d is invalid: expected %s but got %s", i+1, t, p)
+					return
+				}
 			}
 		}
 	}
 
 	// Make values
-	vals := make([]reflect.Value, f.typ.NumIn())
+	vals := make([]reflect.Value, len(parms))
 	for i, p := range parms {
 		vals[i] = reflect.ValueOf(p)
 	}
@@ -67,7 +69,11 @@ func (f BuiltinFunc) Help() string {
 }
 
 func (f BuiltinFunc) NumParams() int {
-	return f.typ.NumIn()
+	if f.typ.IsVariadic() {
+		return -1
+	} else {
+		return f.typ.NumIn()
+	}
 }
 
 type DefinedFunc struct {

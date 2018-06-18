@@ -269,6 +269,34 @@ func listFilter(l interface{}, fn Func) (interface{}, error) {
 	return nil, fmt.Errorf("Unsupported type for parameter 1")
 }
 
+func conditional(args ...interface{}) (interface{}, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("'if' function needs at least one parameter")
+	}
+
+	if len(args)%2 != 1 {
+		return nil, fmt.Errorf("'if' function must be called with an odd number of parameters")
+	}
+
+	for i := 0; i < len(args); i += 2 {
+		if i == len(args)-1 {
+			// else case
+			return args[i], nil
+		}
+
+		v := args[i]
+		ii, ok := v.(*big.Int)
+		if !ok {
+			return nil, fmt.Errorf("parameters to 'if' function at even indices (except last) must be integers (treated as true/false)")
+		}
+		if ii.Sign() != 0 {
+			return args[i+1], nil
+		}
+	}
+
+	return nil, fmt.Errorf("'if' function failed: walked off the end of the list...")
+}
+
 /*** End List functions ***/
 
 func registerStdlibMath() {
@@ -336,6 +364,7 @@ func init() {
 	RegisterBuiltin("now", now, "return the number of milliseconds since epoch")
 	RegisterBuiltin("roll", roll, "roll p1 dice each having p2 sides and sum the outcomes")
 	RegisterBuiltin("bytes", getBytes, "return a list of each byte composing an integer")
+	RegisterBuiltin("if", conditional, "implements if/elsif/else")
 	/*** List functions ***/
 	RegisterBuiltin("llen", listLen, "return length of a list")
 	RegisterBuiltin("li", listIndex, "return element at index p2 in list p1")

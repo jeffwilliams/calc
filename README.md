@@ -71,7 +71,7 @@ Functions may also be defined:
     > lbs_n_oz_to_kg(160,6)
     72.574866
 
-Help lists the defined functions:
+Help lists the defined functions, whether built-in or user-defined:
 
     > help
     &(p1, p2): return p1 & p2 (bitwise and)
@@ -100,10 +100,12 @@ Help lists the defined functions:
     exp(p1): calculates e^p1, the base-e exponential of p1. This function only has the precision of a float64.
     exp10(p1): calculates 10^p1, the base-10 exponential of p1. This function only has the precision of a float64.
     exp2(p1): calculates 2^p1, the base-2 exponential of p1. This function only has the precision of a float64.
+    filter(p1, p2): apply a predicate function p2 to each element in the list p1, returning a list of the values for which it returned 'true' (that is, nonzero)
     floor(p1): floor. This function only has the precision of a float64.
     gamma(p1): gamma function. This function only has the precision of a float64.
     hex_to_ipv4(p1): Convert a hex value to an IPv4 address
     hypot(p1, p2): calculates sqrt(p1*p1 + p2*p2). This function only has the precision of a float64.
+    if(...): implements if/elsif/else
     j0(p1): order zero bessel function of the first kind. This function only has the precision of a float64.
     j1(p1): order one bessel function of the first kind. This function only has the precision of a float64.
     lbs_n_oz_to_kg(p1, p2): convert pounds and ounces to kg
@@ -129,7 +131,6 @@ Help lists the defined functions:
     y1(p1): order one bessel function of the second kind. This function only has the precision of a float64.
     |(p1, p2): return p1 | p2 (bitwise or)
     ~(p1): return p1 | p2 (bitwise not)
-
 
 Note that `lbs_n_oz_to_kg` is in there. There are a number of predefined functions. The ones that apply to decimal numbers only support double precision: 
 
@@ -198,7 +199,9 @@ This comes in handy when reducing a list:
     > reduce([1,2,3], +, 0)
     6
 
-Note that the unary negation function is `neg` not `-`. The `-` is used for subtraction. Comparison operators return the int 1 if the expression is true, and 0 if false:
+Note that the unary negation function is `neg` not `-`. The `-` is used for subtraction. 
+
+Comparison operators return the int 1 if the expression is true, and 0 if false:
 
     > 4 < 5
     1
@@ -216,6 +219,20 @@ When combined with immediate function definitions these are useful when filterin
     > filter([1,2,3,4,5], def(x){x<4})
     [1, 2, 3]
 
+The comparison operators are also handy when using the `if` function:
+
+    > x=5
+    > if(x>1,4,5)
+    4
+    > if(x>7,4,5)
+    5
+    > if(x>7,4,x<10,3,5)
+    3
+    > if(9)
+    9
+    > def max(a,b) if(a>b,a,b)
+    > reduce([1,2,3,2,1],max,0)
+    3
 
 Calc supports readline-like line editing: UP moves to the previous expression, arrow keys, home, end, CTRL-A, CTRL-E, CTRL-U, CTRL-R, and CTRL-K all behave as expected. On a blank line the TAB key auto-completes against defined functions, variables, and keywords.
 
