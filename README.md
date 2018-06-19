@@ -214,7 +214,7 @@ Comparison operators return the int 1 if the expression is true, and 0 if false:
     > 5 > 4
     1
 
-When combined with immediate function definitions these are useful when filtering lists:
+When combined with anonymous functions they are useful when filtering lists:
 
     > filter([1,2,3,4,5], def(x){x<4})
     [1, 2, 3]
@@ -233,6 +233,19 @@ The comparison operators are also handy when using the `if` function:
     > def max(a,b) if(a>b,a,b)
     > reduce([1,2,3,2,1],max,0)
     3
+
+Immediate functions form closures on the parameters of the outer function they are defined in:
+
+    > def clamp(min,max) "return a function that clamps a value within a given range" def(x){if(x<min,min,x>max,max,x)}
+    > g=clamp(3,5)
+    > g(1)
+    3
+    > g(4)
+    4
+    > g(6)
+    5
+    > map([1,2,3,4,5,6,7],clamp(3,5))
+    [3, 3, 3, 4, 5, 5, 5]
 
 Calc supports readline-like line editing: UP moves to the previous expression, arrow keys, home, end, CTRL-A, CTRL-E, CTRL-U, CTRL-R, and CTRL-K all behave as expected. On a blank line the TAB key auto-completes against defined functions, variables, and keywords.
 
