@@ -96,11 +96,23 @@
 		}
 		prm := toStringSlice(parms.([]interface{}))
 
+		// If this function is being defined inside a function being called,
+		// save the parameters and local vars from the outer function in the 
+		// inner functions scope (bind them). This implements closures.
+		var bound map[string]interface{}
+		if len(LocalVars) > 0 {
+			bound = make(map[string]interface{})
+			for i,v := range LocalVars {
+				bound[i] = v
+			}
+		}
+
 		f := &DefinedFunc{ 
 			name:       "nameless",
 			help:       hlp,
 			paramNames: prm,
 			body:       buf,
+			bound:      bound,
 		} 
 
 		return f, nil
@@ -257,7 +269,7 @@ SetSettingStmt "set setting" <- "set " _ id:Identifier _ v:( "hex" / "dec" / "bi
 	return nil, err
 }
 
-SetStmt "set statement" <- id:Identifier _ '=' _ expr:Expr {
+SetStmt "set statement" <- _ id:Identifier _ '=' _ expr:Expr {
   SetGlobal(id.(string), expr)
 	return nil, nil
 }

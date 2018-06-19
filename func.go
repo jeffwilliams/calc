@@ -81,10 +81,17 @@ type DefinedFunc struct {
 	help       string
 	paramNames []string
 	body       []byte
+	bound      map[string]interface{}
 }
 
 func (f DefinedFunc) Call(parms []interface{}) (result interface{}, err error) {
 	defer ClearLocals()
+
+	if f.bound != nil {
+		for i, bvar := range f.bound {
+			LocalVars[i] = bvar
+		}
+	}
 
 	for i, parm := range parms {
 		if i > len(f.paramNames) {

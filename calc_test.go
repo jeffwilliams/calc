@@ -739,6 +739,11 @@ func TestCalc(t *testing.T) {
 			input:  "if(0,4,0,2,5)",
 			output: big.NewInt(5),
 		},
+		{
+			name:   "closures_1",
+			input:  "def clamp(y) def(x){if(x>y,y,x)}; fn=clamp(3); fn(5); fn(2)",
+			output: []interface{}{nil, big.NewInt(3), big.NewInt(2)},
+		},
 	}
 
 	fn0 := func() (*big.Int, error) {
