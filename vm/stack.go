@@ -17,3 +17,10 @@ func (s *Stack) Pop() (r interface{}) {
 func (s *Stack) Push(v interface{}) {
 	*s = append(*s, v)
 }
+
+func (s *Stack) Swap() {
+	l := len(*s)
+	if l >= 2 {
+		(*s)[l-2], (*s)[l-1] = (*s)[l-1], (*s)[l-2]
+	}
+}

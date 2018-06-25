@@ -1,17 +1,16 @@
 package vmimpl
 
 import (
-	"github.com/jeffwilliams/calc/vm"
+	"fmt"
 	"math/big"
+
+	"github.com/jeffwilliams/calc/vm"
 )
 
-type InvalidOperandTypeError int
-
-func (e InvalidOperandTypeError) Error() string {
-	return "operand is not valid for instruction"
-}
-
-var InvalidOperandType InvalidOperandTypeError
+var InvalidOperandType = fmt.Errorf("operand is not valid for instruction")
+var InvalidOperandValue = fmt.Errorf("operand value is out of range")
+var InvalidFunction = fmt.Errorf("no function with that index")
+var InvalidStackSize = fmt.Errorf("stack size is not valid for the instruction")
 
 // push an immediate value onto the stack
 func pushOpHandler(state *vm.State, i *vm.Instruction) error {
@@ -39,7 +38,166 @@ func iAddOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 }
 
+type CallBuiltinOperand struct {
+	BuiltinIndex, NumParms int
+}
+
+// handle 'call builtin' instruction.
+// pushes the number of arguments the function will be called with
+// and sets Ip (instruction pointer) to the address of the call - 1, and
+// pushes return address
+func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
+
+	/*
+		funcIndex := i.Operand.(uint)
+		numParms := state.Stack.Pop()
+		n, ok := numParms.(uint)
+		if !ok {
+			return InvalidOperandType
+		}
+		if n > len(state.FnTbl) {
+			return InvalidFunction
+		}
+		fn := state.FnTbl[i]
+		parms := imake([]interface{}, n)
+		for i := 0; i < n; i++ {
+			parms[i] = state.Stack.Pop()
+		}
+		r, err := fn.Call(parms)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	*/
+
+	arg, ok := i.Operand.(CallBuiltinOperand)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	if arg.BuiltinIndex > len(state.BuiltinTbl) {
+		return InvalidFunction
+	}
+
+	fn := state.BuiltinTbl[arg.BuiltinIndex]
+
+	n := arg.NumParms
+	parms := make([]interface{}, n)
+	for i := 0; i < n; i++ {
+		parms[i] = state.Stack.Pop()
+	}
+	r, err := fn.Call(parms)
+	if err != nil {
+		return err
+	}
+	state.Stack.Push(r)
+	state.Stack.Push(state.Ip)
+
+	return nil
+}
+
+// handle 'call' instruction.
+// sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
+func callOpHandler(state *vm.State, i *vm.Instruction) error {
+	arg, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	state.Stack.Push(state.Ip)
+	state.Ip = arg - 1
+	return nil
+}
+
+func popOpHandler(state *vm.State, i *vm.Instruction) error {
+	state.Stack.Pop()
+	return nil
+}
+
+func returnOpHandler(state *vm.State, i *vm.Instruction) error {
+	addr := state.Stack.Pop()
+	var ok bool
+	state.Ip, ok = addr.(int)
+	if !ok {
+		// Restore state to before instruction (for debugging)
+		state.Stack.Push(addr)
+		return InvalidOperandType
+	}
+
+	return nil
+}
+
+// Meant for entering function.
+// Set base pointer to the start of the variables in the stack.
+// variables are pushed last-to-first, so they are accessed as return address = bp, arg1 = bp-1, arg2 = bp-2...
+func enterOpHandler(state *vm.State, i *vm.Instruction) error {
+	state.Bp = len(state.Stack) - 1
+	return nil
+}
+
+// Meant for leaving function.
+// Clean up function parameters, and setup stack in preparation for return.
+// Assumes bp is set, and that bp+1 is return value, bp is return address, bp-1 is arg1, bp-2 is arg2,...
+// Fixes stack so that top is return address, top-1 is return value, and N arguments are removed.
+func leaveOpHandler(state *vm.State, i *vm.Instruction) error {
+	numArgs, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	if state.Bp+1 >= len(state.Stack) {
+		return InvalidStackSize
+	}
+
+	returnValue := state.Stack[state.Bp+1]
+	returnAddr := state.Stack[state.Bp]
+
+	state.Stack = state.Stack[0 : state.Bp-numArgs]
+	state.Stack.Push(returnValue)
+	state.Stack.Push(returnAddr)
+	return nil
+}
+
+// push the ith function parameter, based on the current base pointer.
+// variables are pushed last-to-first, so they are accessed as arg0 = bp, arg1 = bp-1, arg2 = bp-2...
+func pushParmOpHandler(state *vm.State, i *vm.Instruction) error {
+	index, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+	index = state.Bp - index
+	if index >= len(state.Stack) {
+		return InvalidOperandValue
+	}
+	state.Stack.Push(state.Stack[state.Bp-index])
+	return nil
+}
+
+// swap top two elements of the stack
+/*func swapOpHandler(state *vm.State, i *vm.Instruction) error {
+	if len(state.Stack) < 2 {
+		return InvalidStackSize
+	}
+	state.Stack.Swap()
+	return nil
+}*/
+
+func haltOpHandler(state *vm.State, i *vm.Instruction) error {
+	state.Halt = true
+	return nil
+}
+
 const (
-	iAddOp = iota
-	pushOp
+	IAddOp = iota
+	PushOp
+	CallBOp
+	CallOp
+	PopOp
+	ReturnOp
+	EnterOp
+	PushParmOp
+	//SwapOp
+	HaltOp
+	LeaveOp
 )
