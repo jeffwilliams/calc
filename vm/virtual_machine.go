@@ -19,13 +19,19 @@ func (e ExecError) Details() string {
 	return e.VmState.Summary(e.is)
 }
 
+// StringWithStater defines objects that can return a String representing them
+// if they are passed State.
+type StringWithStater interface {
+	StringWithState(s *State) string
+}
+
 type Func interface {
 	Call(parms []interface{}) (result interface{}, err error)
 }
 
 type State struct {
 	Stack      Stack
-	BuiltinTbl []Func
+	Builtins   BuiltinSet
 	GlobalVars []interface{}
 	Prog       []Instruction
 	//FuncParms  []interface{}
@@ -45,7 +51,7 @@ func (s State) Summary(is InstructionSet) string {
 	if len(s.Stack) == 0 {
 		fmt.Fprintf(&buf, "  (empty)\n")
 	}
-	fmt.Fprintf(&buf, "Instuctions:\n")
+	fmt.Fprintf(&buf, "Instructions at Ip ± 10:\n")
 	for i := s.Ip - 10; i < s.Ip+10 && i < len(s.Prog); i++ {
 		if i < 0 {
 			continue
@@ -55,7 +61,15 @@ func (s State) Summary(is InstructionSet) string {
 		if i == s.Ip {
 			m = "=>"
 		}
-		fmt.Fprintf(&buf, "%s%d: %s %v (%T)\n", m, i, is.Name(instr.Opcode), instr.Operand, instr.Operand)
+
+		var opString string
+		if t, ok := instr.Operand.(StringWithStater); ok {
+			opString = t.StringWithState(&s)
+		} else {
+			opString = fmt.Sprintf("%v", instr.Operand)
+		}
+
+		fmt.Fprintf(&buf, "%s%d: %s %s (%T)\n", m, i, is.Name(instr.Opcode), opString, instr.Operand)
 	}
 	return buf.String()
 }
@@ -67,10 +81,11 @@ type VM struct {
 	state State
 }
 
-func NewVM(is InstructionSet) (vm *VM, err error) {
+func NewVM(is InstructionSet, bs BuiltinSet) (vm *VM, err error) {
 	vm = &VM{
 		state: State{
-			Stack: make(Stack, 0, 10000),
+			Stack:    make(Stack, 0, 10000),
+			Builtins: bs,
 		},
 		is: is,
 	}
@@ -87,8 +102,10 @@ type RunOpts struct {
 // to the instruction being executed, to help debugging.
 func (vm *VM) Run(prog []Instruction, opts *RunOpts) error {
 	vm.state.Ip = 0
+	vm.state.Bp = 0
 	vm.state.Stack = []interface{}{}
 	vm.state.Prog = prog
+	vm.state.Halt = false
 	for !vm.state.Halt && vm.state.Ip < len(prog) {
 		if opts != nil && opts.StepFunc != nil {
 			opts.StepFunc(&vm.state)

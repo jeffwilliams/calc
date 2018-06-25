@@ -39,50 +39,31 @@ func iAddOpHandler(state *vm.State, i *vm.Instruction) error {
 }
 
 type CallBuiltinOperand struct {
-	BuiltinIndex, NumParms int
+	Index, NumParms int
+}
+
+func (op CallBuiltinOperand) StringWithState(s *vm.State) string {
+	return fmt.Sprintf("builtin '%s', num parms %d", s.Builtins.Name(op.Index), op.NumParms)
 }
 
 // handle 'call builtin' instruction.
-// pushes the number of arguments the function will be called with
-// and sets Ip (instruction pointer) to the address of the call - 1, and
-// pushes return address
 func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
-
-	/*
-		funcIndex := i.Operand.(uint)
-		numParms := state.Stack.Pop()
-		n, ok := numParms.(uint)
-		if !ok {
-			return InvalidOperandType
-		}
-		if n > len(state.FnTbl) {
-			return InvalidFunction
-		}
-		fn := state.FnTbl[i]
-		parms := imake([]interface{}, n)
-		for i := 0; i < n; i++ {
-			parms[i] = state.Stack.Pop()
-		}
-		r, err := fn.Call(parms)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	*/
-
 	arg, ok := i.Operand.(CallBuiltinOperand)
 	if !ok {
 		return InvalidOperandType
 	}
 
-	if arg.BuiltinIndex > len(state.BuiltinTbl) {
+	fn, err := state.Builtins.Func(arg.Index)
+	if err != nil {
 		return InvalidFunction
 	}
 
-	fn := state.BuiltinTbl[arg.BuiltinIndex]
-
 	n := arg.NumParms
+
+	if n > len(state.Stack) {
+		return InvalidStackSize
+	}
+
 	parms := make([]interface{}, n)
 	for i := 0; i < n; i++ {
 		parms[i] = state.Stack.Pop()
@@ -92,7 +73,6 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 		return err
 	}
 	state.Stack.Push(r)
-	state.Stack.Push(state.Ip)
 
 	return nil
 }
@@ -187,17 +167,3 @@ func haltOpHandler(state *vm.State, i *vm.Instruction) error {
 	state.Halt = true
 	return nil
 }
-
-const (
-	IAddOp = iota
-	PushOp
-	CallBOp
-	CallOp
-	PopOp
-	ReturnOp
-	EnterOp
-	PushParmOp
-	//SwapOp
-	HaltOp
-	LeaveOp
-)

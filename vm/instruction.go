@@ -27,7 +27,7 @@ type InstructionTable struct {
 	// Names maps an instruction opcode to its name
 	Names map[uint8]string
 	// Opcode maps an instruction description's id to its assigned opcode
-	Opcode map[int]uint8
+	//Opcode map[int]uint8
 }
 
 func (i InstructionTable) Handler(opcode uint8) (OpcodeHandler, error) {
@@ -45,16 +45,16 @@ func (i InstructionTable) Name(opcode uint8) string {
 }
 
 type InstructionDescr struct {
-	Id      int
+	//Id      int
 	Name    string
 	Handler OpcodeHandler
 }
 
 func NewInstructionTable(descTable []InstructionDescr) (it *InstructionTable, err error) {
 	it = &InstructionTable{
-		Handlers: []OpcodeHandler{},
+		Handlers: make([]OpcodeHandler, len(descTable)),
 		Names:    map[uint8]string{},
-		Opcode:   map[int]uint8{},
+		//Opcode:   map[int]uint8{},
 	}
 
 	if len(descTable) > 256 {
@@ -62,12 +62,10 @@ func NewInstructionTable(descTable []InstructionDescr) (it *InstructionTable, er
 		return
 	}
 
-	it.Handlers = make([]OpcodeHandler, len(descTable))
-
 	for i, v := range descTable {
 		it.Handlers[i] = v.Handler
 		it.Names[uint8(i)] = v.Name
-		it.Opcode[v.Id] = uint8(i)
+		//it.Opcode[v.Id] = uint8(i)
 	}
 	return
 }
