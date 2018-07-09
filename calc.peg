@@ -8,6 +8,7 @@
   import (
     "math/big"
     "strings"
+	  "github.com/jeffwilliams/calc/ast"
   )
 
 	func toIfaceSlice(v interface{}) []interface{} {
@@ -55,21 +56,13 @@
 
 	// Evaluate the expression for a rule that consists of an operand, operator, 
 	// and expression.
-	func handleBinaryOpExpr(num, rest interface{}) (interface{}, error) {
-		var err error
-		acc := num
-		for _, v := range toIfaceSlice(rest) {
-			list := toIfaceSlice(v)
-
-			// In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
-			o := string(list[1].([]uint8))
-			acc, err = evalBinaryOp(o, acc, list[3])
-			if err != nil {
-				return acc, err
-			}
-		}
-
-		return acc, nil
+	func handleBinaryOpExpr(num, op, rest interface{}) (interface{}, error) {
+	  if rest == nil {
+    	return num, nil
+	  }
+  
+  	opStr := string(op.([]uint8))
+  	return &ast.BinaryExpr{Op: opStr, X: num, Y: rest}, nil
 	}	
 
 	// Evaluate the expression for a rule that consists of an operator and operand.
@@ -79,7 +72,7 @@
 		return evalUnaryOp(o, num)
 	}
 
-	func handleFuncDef(parms, help, expr interface{}) (*DefinedFunc, error) {
+	func handleFuncDefOld(parms, help, expr interface{}) (*DefinedFunc, error) {
 		buf := charClassRepetitionToByteSlice(expr)
 		
 		// first try parsing the function's body to see if it's valid.
@@ -117,14 +110,26 @@
 
 		return f, nil
 	}
+
+	func handleFuncDef(parms, help, expr interface{}) (*ast.FuncDef, error) {
+		var hlp string
+		if help != nil {
+			hlp = help.([]interface{})[1].(string)
+		}
+		prm := toStringSlice(parms.([]interface{}))
+
+		return &ast.FuncDef{Args: prm, Help: hlp, Body: expr}, nil
+	}
 }
 
 Input "input" <- first:(Block?) rest:((';' Block)*) EOF {
   if rest == nil || len(rest.([]interface{})) == 0 {
-    return first, nil
+    //return first, nil
+		return &ast.Stmts{Stmts: []interface{}{first}}, nil
   } else {
     l := buildSlice(first, rest, 1)
-    return l, nil
+    //return l, nil
+		return &ast.Stmts{Stmts: l}, nil
   }
 }
 
@@ -141,29 +146,69 @@ Expr "expression" <- _ n:(Prec3Expr / FuncCallOrParen) _ {
   return n, nil
 }
 
-Prec3Expr "precedence 3 expression" <- num:Prec2Expr rest:(_ Prec3Op _ Prec2Expr)*  {
-	return handleBinaryOpExpr(num, rest)
+Prec3Expr "precedence 3 expression" <- n:(Prec3ExprOpt1 / Prec3ExprOpt2) {
+	return n, nil
 }
 
-Prec2Expr "precedence 2 expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
-	return handleBinaryOpExpr(num, rest)
+Prec3ExprOpt1 "precedence 3 expression opt 1" <- num:Prec2Expr _ op:Prec3Op _ rest:Prec3Expr {
+	return handleBinaryOpExpr(num, op, rest)
 }
 
-Prec1Expr "precedence 1 expression" <- num:Prec0Expr rest:(_ Prec1Op _ Prec0Expr)*  {
-	return handleBinaryOpExpr(num, rest)
+Prec3ExprOpt2 "precedence 3 expression opt 2" <- num:Prec2Expr {
+	return num, nil
 }
+
+
+Prec2Expr "precedence 2 expression" <- n:(Prec2ExprOpt1 / Prec2ExprOpt2) {
+	return n, nil
+}
+
+Prec2ExprOpt1 "precedence 2 expression opt 1" <- num:Prec1Expr _ op:Prec2Op _ rest:Prec2Expr {
+	return handleBinaryOpExpr(num, op, rest)
+}
+
+Prec2ExprOpt2 "precedence 2 expression opt 2" <- num:Prec1Expr {
+  return num, nil
+}
+
+
+
+Prec1Expr "precedence 1 expression" <- n:(Prec1ExprOpt1 / Prec1ExprOpt2) {
+	return n, nil
+}
+
+Prec1ExprOpt1 "precedence 1 expression opt 1" <- num:Prec0Expr _ op:Prec1Op _ rest:Prec1Expr {
+	return handleBinaryOpExpr(num, op, rest)
+}
+
+Prec1ExprOpt2 "precedence 1 expression opt 2" <- num:Prec0Expr {
+	return num, nil
+}
+
+
+
 
 Prec0Expr "precedence 0 expression" <- num:( UnaryExpr / Prec0OpExpr ) {
 	return num, nil
 }
 
 UnaryExpr <- op:[~-] num:FuncCallOrParen {
-	return handleUnaryOpExpr(op, num)
+	opStr := string(op.([]uint8))
+	return &ast.UnaryExpr{Op: opStr, X: num}, nil
 }
 
-Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ FuncCallOrParen)*  {
-	return handleBinaryOpExpr(num, rest)
+Prec0OpExpr "precedence 0 expression" <- n:(Prec0OpExprOpt1 / Prec0OpExprOpt2) {
+	return n, nil
 }
+
+Prec0OpExprOpt1 "precedence 0 expression opt 1" <- num:FuncCallOrParen _ op:Prec0Op _ rest:Prec0Expr  {
+	return handleBinaryOpExpr(num, op, rest)
+}
+
+Prec0OpExprOpt2 "precedence 0 expression opt 2" <- num:FuncCallOrParen  {
+	return num, nil
+}
+
 
 FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / Lambda / FuncCall / Number / Variable / List ) {
 	return n, nil
@@ -173,7 +218,6 @@ Paren "parenthesis expression" <- '(' e:Expr ')' {
   return e, nil
 }
 
-//FuncCall "function call" <- name:Identifier _ '(' parms:FuncParms ')' {
 FuncCall "function call" <- name:FunctionName _ '(' parms:FuncParms ')' {
 	nm := name.(string)
 	if parms == nil {
@@ -198,13 +242,15 @@ Number "number" <- n:(Float / Int) {
 Float "float" <- [0-9]* '.' [0-9]+ {
   f := new(big.Float)
   _, err := fmt.Sscan(strings.Replace(string(c.text),",","",-1), f)
-  return f, err
+	return ast.Number{Value: f}, err
+  //return f, err
 }
 
 Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   i := new(big.Int)
   _, err := fmt.Sscan(strings.Replace(string(c.text),",","",-1), i)
-  return i, err
+	return &ast.Number{Value: i}, err
+  //return i, err
 }
 
 List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
@@ -237,8 +283,9 @@ List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
 
 //Variable <- id:(Identifier) {
 Variable <- id:(Identifier / FunctionName) {
-	resolved, err := Resolve(id.(string))
-	return resolved, err
+	return &ast.Ident{Name: id.(string)}, nil
+	//resolved, err := Resolve(id.(string))
+	//return resolved, err
 }
 
 Identifier <- [a-zA-Z_] [a-zA-Z0-9_]* {
@@ -260,8 +307,8 @@ _ "spaces" <- [ \t]*
 EOF <- !.
 
 // Statements 
-Stmt "statement" <- SetSettingStmt / SetStmt / DefStmt / HelpStmt {
-	return nil, nil
+Stmt "statement" <- s:(SetSettingStmt / SetStmt / DefStmt / HelpStmt) {
+	return s, nil
 }
 
 SetSettingStmt "set setting" <- "set " _ id:Identifier _ v:( "hex" / "dec" / "bin" ) {
@@ -274,16 +321,15 @@ SetStmt "set statement" <- _ id:Identifier _ '=' _ expr:Expr {
 	return nil, nil
 }
 
-DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:([^;]+) {
+DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:Expr {
 	f, err := handleFuncDef(parms, help, expr)
 	if err != nil {
 		return nil, err
 	}
 	
-  nm := name.(string)
+	f.Name = name.(string)
 
-  RegisterDefined(nm, f.paramNames, f.body, f.help)
-	return nil, nil
+	return f, nil
 }
 
 DefStmtParms "def stmt params" <- first:Identifier? rest:( _ ',' _ Identifier )* {

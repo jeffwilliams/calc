@@ -30,15 +30,26 @@ type Func interface {
 }
 
 type State struct {
-	Stack      Stack
-	Builtins   BuiltinSet
-	GlobalVars []interface{}
-	Prog       []Instruction
+	Stack    Stack
+	Data     []interface{}
+	Builtins BuiltinSet
+	Prog     []Instruction
 	//FuncParms  []interface{}
 	Halt bool
 	Ip   int
 	// Base pointer
 	Bp int
+}
+
+func (s State) InstructionString(is InstructionSet, instr *Instruction) string {
+	var opString string
+	if t, ok := instr.Operand.(StringWithStater); ok {
+		opString = t.StringWithState(&s)
+	} else {
+		opString = fmt.Sprintf("%v", instr.Operand)
+	}
+
+	return fmt.Sprintf("%s %s (%T)", is.Name(instr.Opcode), opString, instr.Operand)
 }
 
 func (s State) Summary(is InstructionSet) string {
@@ -62,16 +73,19 @@ func (s State) Summary(is InstructionSet) string {
 			m = "=>"
 		}
 
-		var opString string
-		if t, ok := instr.Operand.(StringWithStater); ok {
-			opString = t.StringWithState(&s)
-		} else {
-			opString = fmt.Sprintf("%v", instr.Operand)
-		}
-
-		fmt.Fprintf(&buf, "%s%d: %s %s (%T)\n", m, i, is.Name(instr.Opcode), opString, instr.Operand)
+		fmt.Fprintf(&buf, "%s%d: %s\n", m, i, s.InstructionString(is, &instr))
 	}
 	return buf.String()
+}
+
+func (s State) GetData(i int) (val interface{}, ok bool) {
+	if i < 0 || i >= len(s.Data) {
+		return
+	}
+
+	val = s.Data[i]
+	ok = true
+	return
 }
 
 type OpcodeHandler func(state *State, i *Instruction) error
@@ -79,6 +93,11 @@ type OpcodeHandler func(state *State, i *Instruction) error
 type VM struct {
 	is    InstructionSet
 	state State
+}
+
+func (vm VM) InstructionString(i *Instruction) string {
+	return vm.state.InstructionString(vm.is, i)
+
 }
 
 func NewVM(is InstructionSet, bs BuiltinSet) (vm *VM, err error) {

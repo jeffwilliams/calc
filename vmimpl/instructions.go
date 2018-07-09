@@ -11,10 +11,30 @@ var InvalidOperandType = fmt.Errorf("operand is not valid for instruction")
 var InvalidOperandValue = fmt.Errorf("operand value is out of range")
 var InvalidFunction = fmt.Errorf("no function with that index")
 var InvalidStackSize = fmt.Errorf("stack size is not valid for the instruction")
+var InvalidAddress = fmt.Errorf("address into data segment is invalid")
+var InvalidVariableType = fmt.Errorf("variable had wrong type")
 
 // push an immediate value onto the stack
 func pushOpHandler(state *vm.State, i *vm.Instruction) error {
 	state.Stack.Push(i.Operand)
+	return nil
+}
+
+// handle 'pushi' instruction (indirect push). Parameter to the instruction
+// is a variable index (index into the data segment)
+// pushes the value of the variable
+func pushIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
+	ptr, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	val, ok := state.GetData(ptr)
+	if !ok {
+		return InvalidAddress
+	}
+
+	state.Stack.Push(val)
 	return nil
 }
 
@@ -54,7 +74,7 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 	}
 
 	fn, err := state.Builtins.Func(arg.Index)
-	if err != nil {
+	if err != nil || fn == nil {
 		return InvalidFunction
 	}
 
@@ -77,12 +97,36 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 }
 
-// handle 'call' instruction.
+// handle 'call' instruction. The operand is the address to call.
 // sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
 func callOpHandler(state *vm.State, i *vm.Instruction) error {
 	arg, ok := i.Operand.(int)
 	if !ok {
 		return InvalidOperandType
+	}
+
+	state.Stack.Push(state.Ip)
+	state.Ip = arg - 1
+	return nil
+}
+
+// handle 'calli' instruction (indirect call). Parameter to the instruction
+// is a variable index (index into the data segment)
+// sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
+func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
+	ptr, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	argIntf, ok := state.GetData(ptr)
+	if !ok {
+		return InvalidAddress
+	}
+
+	arg, ok := argIntf.(int)
+	if !ok {
+		return InvalidVariableType
 	}
 
 	state.Stack.Push(state.Ip)

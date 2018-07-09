@@ -9,6 +9,9 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/jeffwilliams/calc/ast"
+	"github.com/jeffwilliams/calc/compiler"
+	"github.com/jeffwilliams/calc/vm"
 	flag "github.com/spf13/pflag"
 )
 
@@ -108,6 +111,8 @@ func main() {
 	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
 	flag.Parse()
 
+	input := strings.Join(flag.Args(), " ")
+
 	LoadInitScript()
 
 	rl, err := readline.NewEx(&readline.Config{
@@ -120,17 +125,30 @@ func main() {
 		return
 	}
 
+	vmach, builtinIndexes, err := NewVM()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: creating VM failed: %v\n", err)
+		return
+	}
+
+	var line string
+
 	for {
-		line, err := rl.Readline()
-		if err != nil {
-			if err == readline.ErrInterrupt {
-				break
+		if input != "" {
+			line = input
+			input = ""
+		} else {
+			line, err = rl.Readline()
+			if err != nil {
+				if err == readline.ErrInterrupt {
+					break
+				}
+				if err == io.EOF && !readline.IsTerminal(readline.GetStdin()) {
+					break
+				}
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				continue
 			}
-			if err == io.EOF && !readline.IsTerminal(readline.GetStdin()) {
-				break
-			}
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			continue
 		}
 
 		parsed, err := Parse("last line", []byte(line))
@@ -139,6 +157,53 @@ func main() {
 			continue
 		} else {
 			SetGlobal("last", parsed)
+		}
+
+		fmt.Printf("parsed type: %T\n", parsed)
+		if t, ok := parsed.(*ast.Stmts); ok {
+			t.GetMeta()
+			f := func(node interface{}, depth int) bool {
+				d := depth
+				for ; depth > 0; depth-- {
+					fmt.Printf("  ")
+				}
+				fmt.Printf("Node: %v (depth %d)\n", node, d)
+				return true
+			}
+			ast.Walk(f, ast.Pre, t)
+
+			fmt.Printf("compiled code:\n")
+			obj, err := compiler.Compile(t, builtinIndexes)
+			if err != nil {
+				fmt.Printf("compilation failed: %v\n", err)
+				continue
+			}
+
+			code, err := obj.Linked()
+			if err != nil {
+				fmt.Printf("final link failed: %v\n", err)
+				continue
+			}
+
+			for i, instr := range code {
+				fmt.Printf("%d: %s\n", i, vmach.InstructionString(&instr))
+			}
+
+			err = vmach.Run(code, nil)
+			if err != nil {
+				fmt.Printf("execution failed: %v\n", err)
+				if e, ok := err.(vm.ExecError); ok {
+					fmt.Printf("%s\n", e.Details())
+				}
+				continue
+			}
+
+			if len(vmach.State().Stack) == 0 {
+				printResult("Error: stack is empty after execution")
+				continue
+			}
+
+			fmt.Printf("%v\n", vmach.State().Stack.Top())
 		}
 
 		printResult(parsed)
