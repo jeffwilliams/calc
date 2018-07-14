@@ -16,35 +16,6 @@ import (
 type nodeCtx struct {
 }
 
-// Symbol represents either the offset and size of a function's code in
-// an instruction slice, or the offset of a variable in a data segment.
-type Symbol struct {
-	Offset, Size int
-}
-
-// SymbolTable maps the names of functions to their offset and size,
-// or maps names of variables to their offsets.
-type SymbolTable map[string]*Symbol
-
-// HighestOffset returns the offset of the symbol in the table with the highest offset
-func (s SymbolTable) HighestOffset() int {
-	max := -1
-	for _, v := range s {
-		if v.Offset > max {
-			max = v.Offset
-		}
-	}
-	return max
-}
-
-// AddToOffsets increases the offsets of all symbols by `delta`. Used when linking
-// together code.
-func (s SymbolTable) AddToOffsets(delta int) {
-	for _, v := range s {
-		v.Offset += delta
-	}
-}
-
 // Shared represents a set of compiled functions and variables and their symbol tables.
 type Shared struct {
 	// Functions contains code for compiled functions
@@ -56,12 +27,15 @@ type Shared struct {
 }
 
 // AddFn adds a function to the end of the Shared.
-func (s *Shared) AddFn(name string, code []vm.Instruction) {
-	sym := Symbol{
-		Offset: len(s.Functions),
-		Size:   len(code),
+func (s *Shared) AddFn(name string, code []vm.Instruction, numArgs int) {
+	sym := &FuncSymbol{
+		BasicSymbol: BasicSymbol{
+			Offset: len(s.Functions),
+		},
+		Size:    len(code),
+		NumArgs: numArgs,
 	}
-	s.FnSymbols[name] = &sym
+	s.FnSymbols[name] = sym
 	s.Functions = append(s.Functions, code...)
 }
 
@@ -69,19 +43,20 @@ func (s *Shared) AddFn(name string, code []vm.Instruction) {
 func (s *Shared) RemoveFn(name string) {
 	sym, ok := s.FnSymbols[name]
 	if ok {
-		beg := s.Functions[0:sym.Offset]
-		end := s.Functions[sym.Offset+sym.Size : len(s.Functions)]
+		fnSym := sym.(*FuncSymbol)
+		beg := s.Functions[0:sym.GetOffset()]
+		end := s.Functions[sym.GetOffset()+fnSym.Size : len(s.Functions)]
 		s.Functions = append(beg, end...)
 		delete(s.FnSymbols, name)
 	}
 }
 
 // AddVar adds a variable to the end of the Shared
-func (s *Shared) AddVar(name string) (sym *Symbol) {
+func (s *Shared) AddVar(name string) (sym Symbol) {
 	var ok bool
 	if sym, ok = s.VarSymbols[name]; !ok {
 		off := s.VarSymbols.HighestOffset() + 1
-		sym = &Symbol{Offset: off}
+		sym = &VarSymbol{BasicSymbol{Offset: off}}
 		s.VarSymbols[name] = sym
 	}
 	return
@@ -97,12 +72,15 @@ func (s *Shared) AddVar(name string) (sym *Symbol) {
 //
 // If the same variable is defined multiple times, only one definition is kept. The offset is
 // the first one found.
-func (s *Shared) Link(more ...Shared) {
+func (s *Shared) Link(more ...*Shared) {
 
 	for _, o := range more {
 		for k, v := range o.FnSymbols {
 			s.RemoveFn(k)
-			s.AddFn(k, o.Functions[v.Offset:v.Offset+v.Size])
+			fnSym := v.(*FuncSymbol)
+			fmt.Printf("Shared.Link: o.Functions: %v\n", o.Functions)
+			fmt.Printf("Shared.Link: %d-%d\n", v.GetOffset(), v.GetOffset()+fnSym.Size)
+			s.AddFn(k, o.Functions[v.GetOffset():v.GetOffset()+fnSym.Size], fnSym.NumArgs)
 		}
 
 		// if variable already exists, leave it at the old location.
@@ -136,12 +114,14 @@ func (c Compiled) Linked() (code []vm.Instruction, err error) {
 	code[lm] = I("halt", nil)
 	copy(code[lm+1:len(code)], c.Functions)
 
-	// Update symbol tables
-	c.FnSymbols.AddToOffsets(lm + 1)
+	delta := lm + 1
+	getOffset := func(sym Symbol) int {
+		return sym.GetOffset() + delta
+	}
 
 	// Resolve functions in function calls. Any call instructions currently use the
 	// function name as the operand instead of the offset. Change it to the offset.
-	for _, v := range code {
+	for i, v := range code {
 		if name, ok := v.Operand.(Unresolved); ok {
 			sym, ok := c.FnSymbols[string(name)]
 			if !ok {
@@ -149,7 +129,8 @@ func (c Compiled) Linked() (code []vm.Instruction, err error) {
 				return
 			}
 
-			v.Operand = sym.Offset
+			v.Operand = getOffset(sym)
+			code[i] = v
 		}
 	}
 	return
@@ -160,9 +141,9 @@ func (c Compiled) Linked() (code []vm.Instruction, err error) {
 // A final resolved program can then be obtained by calling code.Linked().
 //
 // builtinIndexes is used to find the indexes of the builtin functions for resolving binary operators.
-func Compile(tree interface{}, builtinIndexes map[string]int) (code *Compiled, err error) {
+func Compile(tree interface{}, builtinIndexes map[string]int, ref *Shared) (code *Compiled, err error) {
 	var c compiler
-	c.compile(tree, builtinIndexes)
+	c.compile(tree, builtinIndexes, ref)
 	return c.compiled, c.compileError
 
 	return
@@ -180,11 +161,11 @@ type compiler struct {
 	compiled       *Compiled
 	compileError   error
 	builtinIndexes map[string]int
-	// Function being compiled. Nil if no function is currently being compiled.
-	fn *ast.FuncDef
+	ref            *Shared
+	functions      map[string]*ast.FuncDef
 }
 
-func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int) {
+func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int, ref *Shared) {
 	c.compiled = &Compiled{
 		Main: make([]vm.Instruction, 0, 1000),
 		Shared: Shared{
@@ -194,6 +175,11 @@ func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int) {
 		},
 	}
 	c.builtinIndexes = builtinIndexes
+	c.ref = ref
+	c.functions = make(map[string]*ast.FuncDef)
+
+	// Find all functions defined in this compilation unit
+	ast.Walk(c.buildFunctionTable, ast.Pre, tree)
 
 	// Reverse the parameters of binary expressions so that they are pushed on the
 	// stack in the right order.
@@ -209,6 +195,13 @@ func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int) {
 
 	return
 
+}
+
+func (c *compiler) buildFunctionTable(node interface{}, depth int) bool {
+	if def, ok := node.(*ast.FuncDef); ok {
+		c.functions[def.Name] = def
+	}
+	return true
 }
 
 func (c *compiler) compileNode(node interface{}, depth int) bool {
@@ -273,10 +266,6 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// Here we need to suck up all the code from our children, and leave them empty,
 	// and store it on ourself. When the link happens, we'll be placed at the end
 	// and added to a symbol table.
-	fmt.Printf("compiler.compileFuncDef\n")
-	c.fn = v
-	defer func() { c.fn = nil }()
-
 	collected := []vm.Instruction{I("enter", nil)}
 
 	collect := func(node interface{}, depth int) bool {
@@ -290,6 +279,11 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 		}
 		code := meta.([]vm.Instruction)
 		if code != nil {
+			fmt.Printf("compiler.compileFuncDef.collect: depth %d appending %v\n", depth, code)
+			for i, instr := range code {
+				fmt.Printf("%d: %s %v\n", i, InstructTable.Name(instr.Opcode), instr.Operand)
+			}
+
 			collected = append(collected, code...)
 		}
 		node.(ast.Metaer).SetMeta(nil)
@@ -305,13 +299,46 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 }
 
 func (c *compiler) compileFuncCall(v *ast.FuncCall) {
-	// TODO: The problem that still needs to be solved is that any call instructions in the code are
-	// calling relative to some index. When we link things with other things the indexes the call
-	// are "jumping" to are no longer correct.
-	//
-	// The solution is when compiling the function calls, temporarily make the operand the function
-	// name. Then on final link we walk through the instructions converting the operands to the
-	// actual offset of the function being called.
+	expectedNumArgs := -1
+
+	if fnDefNode, ok := c.functions[v.Name]; ok {
+		expectedNumArgs = len(fnDefNode.Args)
+	}
+
+	if expectedNumArgs == -1 {
+		if c.ref != nil {
+			if sym, ok := c.ref.FnSymbols[v.Name]; ok {
+				fnSym := sym.(*FuncSymbol)
+				expectedNumArgs = fnSym.NumArgs
+			}
+		}
+	}
+
+	if expectedNumArgs == -1 {
+		c.compileError = fmt.Errorf("No function defined with name %s", v.Name)
+		return
+	}
+
+	if expectedNumArgs != len(v.Args) {
+		c.compileError = fmt.Errorf("Function %s expects %d arguments, but it is being called with %d", v.Name, expectedNumArgs, len(v.Args))
+		return
+	}
+
+	// Reverse children
+	for i := len(v.Args)/2 - 1; i >= 0; i-- {
+		opp := len(v.Args) - 1 - i
+		v.Args[i], v.Args[opp] = v.Args[opp], v.Args[i]
+	}
+
+	// Here we store the function name instead of the function address for the call.
+	// We can't store the address yet because the symbol may be in another compilation unit,
+	// so it may (a) be unresolved, or (b) be in this unit but this unit is linked after another
+	// so the offset will change.
+	code := []vm.Instruction{
+		I("call", Unresolved(v.Name)),
+	}
+
+	v.SetMeta(code)
 }
 
 func (c *compiler) compileIdent(v *ast.Ident) {
@@ -321,19 +348,23 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 	// 3. a global variable
 
 	// First, check for function parameter
-	fmt.Printf("compiler.compileIdent\n")
-	if c.fn != nil {
-		fmt.Printf("compiler.compileIdent: in function\n")
-		for i, arg := range c.fn.Args {
-			fmt.Printf("compiler.compileIdent: cmp %s to %s\n", arg, v.Name)
-			if arg == v.Name {
-				code := []vm.Instruction{
-					I("pushparm", i),
+	node := v.GetParent()
+	for node != nil {
+		if funcDef, ok := node.(*ast.FuncDef); ok {
+			for i, arg := range funcDef.Args {
+				if arg == v.Name {
+					code := []vm.Instruction{
+						I("pushparm", i),
+						I("clone", nil),
+					}
+					v.SetMeta(code)
+					return
 				}
-				v.SetMeta(code)
-				return
 			}
+			// Only reference parameters from the first function back in the stack.
+			break
 		}
+		node = node.GetParent()
 	}
 
 	// Must be a global var.
@@ -346,7 +377,8 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 
 	// Add code to get the value of the variable.
 	code := []vm.Instruction{
-		I("pushi", sym.Offset),
+		I("pushi", sym.GetOffset()),
+		I("clone", nil),
 	}
 
 	v.SetMeta(code)
@@ -374,9 +406,7 @@ func (c *compiler) linkFuncNodes(node interface{}, depth int) bool {
 		// Put this code at the end of the program, and put the
 		// offset in a symbol table.
 		if code := def.GetMeta().([]vm.Instruction); code != nil {
-			c.compiled.AddFn(def.Name, code)
-			//symbols[def.Name] = len(instructions)
-			//c.Functions = append(c.Functions, code...)
+			c.compiled.AddFn(def.Name, code, len(def.Args))
 		}
 		return true
 	}

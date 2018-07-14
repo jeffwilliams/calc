@@ -24,8 +24,26 @@ type Metaer interface {
 	SetMeta(d interface{})
 }
 
+type Parent struct {
+	parent Parenter
+}
+
+func (p Parent) GetParent() Parenter {
+	return p.parent
+}
+
+func (p *Parent) SetParent(parent Parenter) {
+	p.parent = parent
+}
+
+type Parenter interface {
+	GetParent() Parenter
+	SetParent(parent Parenter)
+}
+
 type BinaryExpr struct {
 	Meta
+	Parent
 	Op string
 	X  Expr
 	Y  Expr
@@ -33,34 +51,40 @@ type BinaryExpr struct {
 
 type UnaryExpr struct {
 	Meta
+	Parent
 	Op string
 	X  Expr
 }
 
 type FuncCall struct {
 	Meta
+	Parent
 	Name string
 	Args []Expr
 }
 
 type Number struct {
 	Meta
+	Parent
 	Value interface{}
 }
 
 type List struct {
 	Meta
+	Parent
 	Type     reflect.Type
 	Elements []Expr
 }
 
 type Ident struct {
 	Meta
+	Parent
 	Name string
 }
 
 type FuncDef struct {
 	Meta
+	Parent
 	// Name is "" in the case of a lambda
 	Name string
 	Args []string
@@ -70,12 +94,14 @@ type FuncDef struct {
 
 type SetStmt struct {
 	Meta
+	Parent
 	Name string
 	Rhs  Expr
 }
 
 type Stmts struct {
 	Meta
+	Parent
 	Stmts []interface{}
 }
 
@@ -87,6 +113,10 @@ const (
 	Pre WalkType = iota
 	Post
 )
+
+func SetParent(node interface{}, parent Parenter) {
+	node.(Parenter).SetParent(parent)
+}
 
 func Walk(v Visitor, t WalkType, node interface{}) {
 	walk(v, t, node, 0)

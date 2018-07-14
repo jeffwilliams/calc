@@ -141,7 +141,6 @@ func (vm *VM) Run(prog []Instruction, opts *RunOpts) error {
 
 		err = h(&vm.state, &i)
 		if err != nil {
-			fmt.Printf("error running handler at Ip=%d\n", vm.state.Ip)
 			if vm.state.Ip != ip {
 				// restore Ip incase the instruction modified it.
 				vm.state.Ip = ip

@@ -37,16 +37,20 @@ func cloneFloatList(l BigFloatList) BigFloatList {
 	return l2
 }
 
-func clone(v interface{}) interface{} {
+func clone(v interface{}) (val interface{}, ok bool) {
+	ok = true
 	switch t := v.(type) {
 	case *big.Int:
-		return cloneInt(t)
+		val = cloneInt(t)
 	case *big.Float:
-		return cloneFloat(t)
+		val = cloneFloat(t)
 	case BigIntList:
-		return cloneIntList(t)
+		val = cloneIntList(t)
 	case BigFloatList:
-		return cloneFloatList(t)
+		val = cloneFloatList(t)
+	default:
+		ok = false
+		val = v
 	}
-	return v
+	return
 }

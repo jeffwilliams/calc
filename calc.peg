@@ -62,7 +62,10 @@
 	  }
   
   	opStr := string(op.([]uint8))
-  	return &ast.BinaryExpr{Op: opStr, X: num, Y: rest}, nil
+		node := &ast.BinaryExpr{Op: opStr, X: num, Y: rest}
+    ast.SetParent(num, node)
+    ast.SetParent(rest, node)
+		return node, nil
 	}	
 
 	// Evaluate the expression for a rule that consists of an operator and operand.
@@ -118,18 +121,26 @@
 		}
 		prm := toStringSlice(parms.([]interface{}))
 
-		return &ast.FuncDef{Args: prm, Help: hlp, Body: expr}, nil
+		node := &ast.FuncDef{Args: prm, Help: hlp, Body: expr}
+    ast.SetParent(expr, node)
+		return node, nil
 	}
 }
 
 Input "input" <- first:(Block?) rest:((';' Block)*) EOF {
   if rest == nil || len(rest.([]interface{})) == 0 {
     //return first, nil
-		return &ast.Stmts{Stmts: []interface{}{first}}, nil
+		stmts := &ast.Stmts{Stmts: []interface{}{first}}
+		ast.SetParent(first, stmts)
+		return stmts, nil
   } else {
     l := buildSlice(first, rest, 1)
+		stmts := &ast.Stmts{Stmts: l}
+		for _, v := range l {
+			ast.SetParent(v, stmts)
+		}
     //return l, nil
-		return &ast.Stmts{Stmts: l}, nil
+		return stmts, nil
   }
 }
 
@@ -194,7 +205,9 @@ Prec0Expr "precedence 0 expression" <- num:( UnaryExpr / Prec0OpExpr ) {
 
 UnaryExpr <- op:[~-] num:FuncCallOrParen {
 	opStr := string(op.([]uint8))
-	return &ast.UnaryExpr{Op: opStr, X: num}, nil
+	node := &ast.UnaryExpr{Op: opStr, X: num}
+	ast.SetParent(num, node)
+	return node, nil
 }
 
 Prec0OpExpr "precedence 0 expression" <- n:(Prec0OpExprOpt1 / Prec0OpExprOpt2) {
@@ -219,11 +232,23 @@ Paren "parenthesis expression" <- '(' e:Expr ')' {
 }
 
 FuncCall "function call" <- name:FunctionName _ '(' parms:FuncParms ')' {
+/*
 	nm := name.(string)
 	if parms == nil {
     parms = []interface{}{}
 	}
   return Call(nm, parms.([]interface{}))
+*/
+	exprs := make([]ast.Expr, len(parms.([]interface{})))
+	for i,v := range parms.([]interface{}) {
+		exprs[i] = v
+	}
+
+	node := &ast.FuncCall{Name: name.(string), Args: exprs}
+	for _, v := range node.Args {
+		ast.SetParent(v, node)
+	}
+	return node, nil
 }
 
 Lambda "lambda" <- "def" _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ '{' _ expr:([^}]+) _ '}' {

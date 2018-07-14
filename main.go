@@ -12,6 +12,7 @@ import (
 	"github.com/jeffwilliams/calc/ast"
 	"github.com/jeffwilliams/calc/compiler"
 	"github.com/jeffwilliams/calc/vm"
+	"github.com/jeffwilliams/calc/vmimpl"
 	flag "github.com/spf13/pflag"
 )
 
@@ -107,6 +108,24 @@ func printResult(parsed interface{}) {
 	}
 }
 
+var sharedCode *compiler.Shared
+
+// link links the shared code with the passed shared object and returns the final code.
+func linkWithShared(obj *compiler.Compiled) (code []vm.Instruction, err error) {
+	if sharedCode != nil {
+		fmt.Printf("linkWithShared: sharedCode before linking: %v\n", sharedCode)
+		fmt.Printf("linkWithShared: obj.Shared before linking: %v\n", obj.Shared)
+		obj.Shared.Link(sharedCode)
+		fmt.Printf("linkWithShared: obj.Shared after linking: %v\n", obj.Shared)
+	}
+	sharedCode = &obj.Shared
+	return obj.Linked()
+}
+
+func init() {
+	vmimpl.Clone = clone
+}
+
 func main() {
 	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
 	flag.Parse()
@@ -167,29 +186,38 @@ func main() {
 				for ; depth > 0; depth-- {
 					fmt.Printf("  ")
 				}
-				fmt.Printf("Node: %v (depth %d)\n", node, d)
+				fmt.Printf("Node: %T %+v (depth %d)\n", node, node, d)
 				return true
 			}
 			ast.Walk(f, ast.Pre, t)
 
-			fmt.Printf("compiled code:\n")
-			obj, err := compiler.Compile(t, builtinIndexes)
+			obj, err := compiler.Compile(t, builtinIndexes, sharedCode)
 			if err != nil {
 				fmt.Printf("compilation failed: %v\n", err)
 				continue
 			}
 
-			code, err := obj.Linked()
+			code, err := linkWithShared(obj)
 			if err != nil {
 				fmt.Printf("final link failed: %v\n", err)
 				continue
 			}
 
+			fmt.Printf("compiled code:\n")
 			for i, instr := range code {
 				fmt.Printf("%d: %s\n", i, vmach.InstructionString(&instr))
 			}
 
-			err = vmach.Run(code, nil)
+			fmt.Printf("shared code:\n")
+			fmt.Printf("%+v\n", sharedCode)
+
+			stepFunc := func(state *vm.State) {
+				fmt.Println(state.Summary(vmach.InstructionSet()))
+			}
+
+			vmopts := vm.RunOpts{StepFunc: stepFunc}
+
+			err = vmach.Run(code, &vmopts)
 			if err != nil {
 				fmt.Printf("execution failed: %v\n", err)
 				if e, ok := err.(vm.ExecError); ok {

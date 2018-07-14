@@ -7,7 +7,7 @@ import (
 )
 
 //var opcodes []OpcodeHandler
-var instructTable *vm.InstructionTable
+var InstructTable *vm.InstructionTable
 
 var instructionDesc = []vm.InstructionDescr{
 	{"invalid", haltOpHandler},
@@ -23,6 +23,7 @@ var instructionDesc = []vm.InstructionDescr{
 	{"pushparm", pushParmOpHandler},
 	{"leave", leaveOpHandler},
 	{"halt", haltOpHandler},
+	{"clone", cloneOpHandler},
 }
 
 var instructionOpcode = map[string]uint8{}
@@ -48,7 +49,7 @@ func I(name string, operand interface{}) vm.Instruction {
 
 func init() {
 	var err error
-	instructTable, err = vm.NewInstructionTable(instructionDesc)
+	InstructTable, err = vm.NewInstructionTable(instructionDesc)
 	if err != nil {
 		panic(err)
 	}
@@ -59,6 +60,10 @@ func init() {
 }
 
 func NewVM(bs vm.BuiltinSet) (m *vm.VM, err error) {
-	m, err = vm.NewVM(instructTable, bs)
+	if Clone == nil {
+		err = fmt.Errorf("Error: the vmimpl.Clone function pointer is not set. Please set it to main.clone.")
+		return
+	}
+	m, err = vm.NewVM(InstructTable, bs)
 	return
 }

@@ -46,10 +46,16 @@ func iAddOpHandler(state *vm.State, i *vm.Instruction) error {
 
 	i1, ok := op1.(*big.Int)
 	if !ok {
+		// restore stack
+		state.Stack.Push(op2)
+		state.Stack.Push(op1)
 		return InvalidOperandType
 	}
 	i2, ok := op2.(*big.Int)
 	if !ok {
+		// restore stack
+		state.Stack.Push(op2)
+		state.Stack.Push(op1)
 		return InvalidOperandType
 	}
 
@@ -154,7 +160,7 @@ func returnOpHandler(state *vm.State, i *vm.Instruction) error {
 
 // Meant for entering function.
 // Set base pointer to the start of the variables in the stack.
-// variables are pushed last-to-first, so they are accessed as return address = bp, arg1 = bp-1, arg2 = bp-2...
+// variables are pushed last-to-first, so they are accessed as return address = bp, arg0 = bp-1, arg1 = bp-2...
 func enterOpHandler(state *vm.State, i *vm.Instruction) error {
 	state.Bp = len(state.Stack) - 1
 	return nil
@@ -162,7 +168,7 @@ func enterOpHandler(state *vm.State, i *vm.Instruction) error {
 
 // Meant for leaving function.
 // Clean up function parameters, and setup stack in preparation for return.
-// Assumes bp is set, and that bp+1 is return value, bp is return address, bp-1 is arg1, bp-2 is arg2,...
+// Assumes bp is set, and that bp+1 is return value, bp is return address, bp-1 is arg0, bp-2 is arg1,...
 // Fixes stack so that top is return address, top-1 is return value, and N arguments are removed.
 func leaveOpHandler(state *vm.State, i *vm.Instruction) error {
 	numArgs, ok := i.Operand.(int)
@@ -184,17 +190,17 @@ func leaveOpHandler(state *vm.State, i *vm.Instruction) error {
 }
 
 // push the ith function parameter, based on the current base pointer.
-// variables are pushed last-to-first, so they are accessed as arg0 = bp, arg1 = bp-1, arg2 = bp-2...
+// variables are pushed last-to-first, so they are accessed as arg0 = bp-1, arg2 = bp-2...
 func pushParmOpHandler(state *vm.State, i *vm.Instruction) error {
 	index, ok := i.Operand.(int)
 	if !ok {
 		return InvalidOperandType
 	}
-	index = state.Bp - index
+	index = state.Bp - index - 1
 	if index >= len(state.Stack) {
 		return InvalidOperandValue
 	}
-	state.Stack.Push(state.Stack[state.Bp-index])
+	state.Stack.Push(state.Stack[index])
 	return nil
 }
 
@@ -209,5 +215,16 @@ func pushParmOpHandler(state *vm.State, i *vm.Instruction) error {
 
 func haltOpHandler(state *vm.State, i *vm.Instruction) error {
 	state.Halt = true
+	return nil
+}
+
+func cloneOpHandler(state *vm.State, i *vm.Instruction) error {
+	top := state.Stack.Pop()
+	val, ok := Clone(top)
+	if !ok {
+		state.Stack.Push(top)
+		return InvalidOperandType
+	}
+	state.Stack.Push(val)
 	return nil
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/jeffwilliams/calc/vm"
 	"github.com/jeffwilliams/calc/vmimpl"
 	"math/big"
@@ -138,8 +137,6 @@ func TestProgs(t *testing.T) {
 			if m.State().Stack.Top().(*big.Int).Cmp(tc.expected) != 0 {
 				t.Fatalf("expected %v but got %v", tc.expected, m.State().Stack.Top())
 			}
-
-			fmt.Printf("%v\n", m.State().Stack.Top())
 		})
 	}
 }
