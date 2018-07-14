@@ -154,7 +154,8 @@ func walk(v Visitor, t WalkType, node interface{}, depth int) {
 		// Leaf
 	case *Ident:
 		// Leaf
-
+	case *SetStmt:
+		wk(t.Rhs)
 	default:
 		panic(fmt.Sprintf("ast.Walk: unexpected node type %T", node))
 	}

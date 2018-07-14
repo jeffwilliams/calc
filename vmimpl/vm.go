@@ -13,7 +13,6 @@ var instructionDesc = []vm.InstructionDescr{
 	{"invalid", haltOpHandler},
 	{"iadd", iAddOpHandler},
 	{"push", pushOpHandler},
-	{"pushi", pushIndirectOpHandler},
 	{"callb", callBuiltinOpHandler},
 	{"call", callOpHandler},
 	{"calli", callIndirectOpHandler},
@@ -24,6 +23,8 @@ var instructionDesc = []vm.InstructionDescr{
 	{"leave", leaveOpHandler},
 	{"halt", haltOpHandler},
 	{"clone", cloneOpHandler},
+	{"load", loadOpHandler},
+	{"store", storeOpHandler},
 }
 
 var instructionOpcode = map[string]uint8{}

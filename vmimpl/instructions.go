@@ -20,10 +20,10 @@ func pushOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 }
 
-// handle 'pushi' instruction (indirect push). Parameter to the instruction
+// handle 'load' instruction.  Parameter to the instruction
 // is a variable index (index into the data segment)
 // pushes the value of the variable
-func pushIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
+func loadOpHandler(state *vm.State, i *vm.Instruction) error {
 	ptr, ok := i.Operand.(int)
 	if !ok {
 		return InvalidOperandType
@@ -35,6 +35,27 @@ func pushIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
 	}
 
 	state.Stack.Push(val)
+	return nil
+}
+
+// handle 'store' instruction.  Parameter to the instruction
+// is a variable index (index into the data segment)
+// pops the top of the stack and stores it into the variable
+func storeOpHandler(state *vm.State, i *vm.Instruction) error {
+	ptr, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	val := state.Stack.Pop()
+
+	ok = state.SetData(ptr, val)
+	if !ok {
+		// restore stack
+		state.Stack.Push(val)
+		return InvalidAddress
+	}
+
 	return nil
 }
 

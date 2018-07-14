@@ -60,6 +60,12 @@ func TestCompiledProgs(t *testing.T) {
 			nil,
 			big.NewInt(6),
 		},
+		{
+			"set_var_simple",
+			"y = 5; y",
+			nil,
+			big.NewInt(5),
+		},
 	}
 
 	for _, tc := range tests {

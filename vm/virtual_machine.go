@@ -88,6 +88,22 @@ func (s State) GetData(i int) (val interface{}, ok bool) {
 	return
 }
 
+func (s *State) SetData(i int, val interface{}) (ok bool) {
+	if i < 0 {
+		return
+	}
+
+	if i >= len(s.Data) {
+		nw := make([]interface{}, i+1)
+		copy(nw, s.Data)
+		s.Data = nw
+	}
+
+	s.Data[i] = val
+	ok = true
+	return
+}
+
 type OpcodeHandler func(state *State, i *Instruction) error
 
 type VM struct {

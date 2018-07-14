@@ -342,8 +342,9 @@ SetSettingStmt "set setting" <- "set " _ id:Identifier _ v:( "hex" / "dec" / "bi
 }
 
 SetStmt "set statement" <- _ id:Identifier _ '=' _ expr:Expr {
-  SetGlobal(id.(string), expr)
-	return nil, nil
+	node := &ast.SetStmt{Name: id.(string), Rhs: expr}
+  ast.SetParent(expr, node)
+	return node, nil
 }
 
 DefStmt "def statement" <- "def " name:Identifier _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ expr:Expr {
