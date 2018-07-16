@@ -1,5 +1,11 @@
 package compiler
 
+import (
+	"bytes"
+	"fmt"
+	"sort"
+)
+
 // Symbol represents either the offset and size of a function's code in
 // an instruction slice, or the offset of a variable in a data segment.
 type Symbol interface {
@@ -23,9 +29,17 @@ type VarSymbol struct {
 	BasicSymbol
 }
 
+func (s VarSymbol) String() string {
+	return fmt.Sprintf("[var o:%d]", s.GetOffset())
+}
+
 type FuncSymbol struct {
 	BasicSymbol
 	Size, NumArgs int
+}
+
+func (s FuncSymbol) String() string {
+	return fmt.Sprintf("[fn o:%d l:%d argc: %d]", s.GetOffset(), s.Size, s.NumArgs)
 }
 
 // SymbolTable maps the names of functions to their offset and size,
@@ -49,4 +63,23 @@ func (s SymbolTable) AddToOffsets(delta int) {
 	for _, v := range s {
 		v.SetOffset(v.GetOffset() + delta)
 	}
+}
+
+func (s SymbolTable) String() string {
+	var buf bytes.Buffer
+
+	keys := make([]string, len(s))
+	i := 0
+	for k := range s {
+		keys[i] = k
+		i += 1
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		fmt.Fprintf(&buf, "%s: %s", k, s[k])
+	}
+
+	return buf.String()
 }
