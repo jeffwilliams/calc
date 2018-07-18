@@ -108,19 +108,7 @@ func printResult(parsed interface{}) {
 	}
 }
 
-var sharedCode *compiler.Shared
-
-// link links the shared code with the passed shared object and returns the final code.
-func linkWithShared(obj *compiler.Compiled) (code []vm.Instruction, err error) {
-	if sharedCode != nil {
-		fmt.Printf("linkWithShared: sharedCode before linking: %v\n", sharedCode)
-		fmt.Printf("linkWithShared: obj.Shared before linking: %v\n", obj.Shared)
-		obj.Shared.Link(sharedCode)
-		fmt.Printf("linkWithShared: obj.Shared after linking: %v\n", obj.Shared)
-	}
-	sharedCode = &obj.Shared
-	return obj.Linked()
-}
+var sharedCode *compiler.Compiled
 
 func init() {
 	vmimpl.Clone = clone
@@ -191,13 +179,19 @@ func main() {
 			}
 			ast.Walk(f, ast.Pre, t)
 
-			obj, err := compiler.Compile(t, builtinIndexes, sharedCode)
+			s := (*compiler.Shared)(nil)
+			if sharedCode != nil {
+				s = &sharedCode.Shared
+			}
+
+			obj, err := compiler.Compile(t, builtinIndexes, s)
 			if err != nil {
 				fmt.Printf("compilation failed: %v\n", err)
 				continue
 			}
 
-			code, err := linkWithShared(obj)
+			sharedCode = sharedCode.Link(obj)
+			code, err := sharedCode.Linked()
 			if err != nil {
 				fmt.Printf("final link failed: %v\n", err)
 				continue

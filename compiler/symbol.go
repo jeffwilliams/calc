@@ -6,6 +6,13 @@ import (
 	"sort"
 )
 
+type SymbolType int
+
+const (
+	SymbolTypeFn SymbolType = iota
+	SymbolTypeVar
+)
+
 // Symbol represents either the offset and size of a function's code in
 // an instruction slice, or the offset of a variable in a data segment.
 type Symbol interface {

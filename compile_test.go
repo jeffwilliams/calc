@@ -114,29 +114,79 @@ func TestIncrementalLink(t *testing.T) {
 		t.Fatalf("creating vm failed: %v", err)
 	}
 
-	// Define func, and link it to new code
-	code1, err := compile("def f(x) x", builtinIndices, nil)
-	t.Fatalf("%v", err)
-
-	code2, err := compile("f(5)", builtinIndices, &code1.Shared)
-	t.Fatalf("%v", err)
-
-	linked, err := code2.Linked()
-	if err != nil {
-		t.Fatalf("linking failed: %v\n", err)
+	tests := []struct {
+		name     string
+		programs []string
+		data     []interface{}
+		expected *big.Int
+	}{
+		{
+			"fn_link",
+			[]string{
+				"def f(x) x",
+				"f(5)",
+			},
+			nil,
+			big.NewInt(5),
+		},
+		{
+			"var_link",
+			[]string{
+				"x=2",
+				"y=3",
+				"x",
+			},
+			nil,
+			big.NewInt(2),
+		},
+		{
+			"var_link",
+			[]string{
+				"x=2",
+				"y=3",
+				"y",
+			},
+			nil,
+			big.NewInt(3),
+		},
 	}
 
-	err = m.Run(linked, nil)
-	if err != nil {
-		t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
-	}
+	for _, tc := range tests {
+		var world *compiler.Compiled
 
-	if len(m.State().Stack) == 0 {
-		t.Fatalf("stack is empty after program")
-	}
+		for _, x := range tc.programs {
 
-	if m.State().Stack.Top().(*big.Int).Cmp(big.NewInt(5)) != 0 {
-		t.Fatalf("expected %v but got %v", 5, m.State().Stack.Top())
+			s := (*compiler.Shared)(nil)
+			if sharedCode != nil {
+				s = &sharedCode.Shared
+			}
+
+			code, err := compile(x, builtinIndices, s)
+			if err != nil {
+				t.Fatalf("compilation failed: %v\n", err)
+			}
+
+			world = world.Link(code)
+		}
+
+		linked, err := world.Linked()
+		if err != nil {
+			t.Fatalf("linking failed: %v\n", err)
+		}
+
+		err = m.Run(linked, nil)
+		if err != nil {
+			t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
+		}
+
+		if len(m.State().Stack) == 0 {
+			t.Fatalf("stack is empty after program")
+		}
+
+		if m.State().Stack.Top().(*big.Int).Cmp(tc.expected) != 0 {
+			t.Fatalf("expected %v but got %v", 5, m.State().Stack.Top())
+
+		}
 	}
 
 }

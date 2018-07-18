@@ -26,7 +26,10 @@ type Compiled struct {
 	Shared
 }
 
-type Unresolved string
+type Unresolved struct {
+	name string
+	typ  SymbolType
+}
 
 // Linked returns the combined Main and Functions instructions into one complete runnable
 // program. The format of the program is Main code first, followed by a halt instruction,
@@ -48,18 +51,43 @@ func (c Compiled) Linked() (code []vm.Instruction, err error) {
 	// Resolve functions in function calls. Any call instructions currently use the
 	// function name as the operand instead of the offset. Change it to the offset.
 	for i, v := range code {
-		if name, ok := v.Operand.(Unresolved); ok {
-			sym, ok := c.FnSymbols[string(name)]
-			if !ok {
-				err = fmt.Errorf("Code refers to unresolved symbol %s", string(name))
-				return
+		if unr, ok := v.Operand.(Unresolved); ok {
+			tbl := c.FnSymbols
+			if unr.typ == SymbolTypeVar {
+				tbl = c.VarSymbols
 			}
 
-			v.Operand = getOffset(sym)
+			sym, ok := tbl[unr.name]
+
+			if unr.typ == SymbolTypeFn {
+				if !ok {
+					err = fmt.Errorf("Code refers to unresolved function %s", unr.name)
+					return
+				}
+				v.Operand = getOffset(sym)
+			} else {
+				if !ok {
+					err = fmt.Errorf("Code refers to unresolved variable %s", unr.name)
+					return
+				}
+				v.Operand = sym.GetOffset()
+			}
 			code[i] = v
 		}
 	}
 	return
+}
+
+// Link links c's Shared wih o's Shared, so that
+// c contains both, and then sets c's Main to o's
+// main. This is basically used for a repl.
+func (c *Compiled) Link(o *Compiled) *Compiled {
+	if c == nil {
+		return o
+	}
+	c.Shared.Link(&o.Shared)
+	c.Main = o.Main
+	return c
 }
 
 // Compile compiles the passed AST `tree` into the Compiled `code`. The returned Compiled can
@@ -207,11 +235,6 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 		}
 		code := meta.([]vm.Instruction)
 		if code != nil {
-			fmt.Printf("compiler.compileFuncDef.collect: depth %d appending %v\n", depth, code)
-			for i, instr := range code {
-				fmt.Printf("%d: %s %v\n", i, InstructTable.Name(instr.Opcode), instr.Operand)
-			}
-
 			collected = append(collected, code...)
 		}
 		node.(ast.Metaer).SetMeta(nil)
@@ -263,7 +286,7 @@ func (c *compiler) compileFuncCall(v *ast.FuncCall) {
 	// so it may (a) be unresolved, or (b) be in this unit but this unit is linked after another
 	// so the offset will change.
 	code := []vm.Instruction{
-		I("call", Unresolved(v.Name)),
+		I("call", Unresolved{v.Name, SymbolTypeFn}),
 	}
 
 	v.SetMeta(code)
@@ -296,16 +319,26 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 	}
 
 	// Must be a global var.
+	offset := -1
+	if c.ref != nil {
+		if sym, ok := c.ref.VarSymbols[v.Name]; ok {
+			offset = sym.GetOffset()
+		}
+	}
 
-	// Make a slot for this variable if it doesn't exist.
-	sym, ok := c.compiled.VarSymbols[v.Name]
-	if !ok {
-		sym = c.compiled.AddVar(v.Name)
+	if offset < 0 {
+		sym, ok := c.compiled.VarSymbols[v.Name]
+		if !ok {
+			c.compileError = fmt.Errorf("Code refers to unresolved variable %s", string(v.Name))
+			return
+		}
+
+		offset = sym.GetOffset()
 	}
 
 	// Add code to get the value of the variable.
 	code := []vm.Instruction{
-		I("load", sym.GetOffset()),
+		I("load", offset),
 		I("clone", nil),
 	}
 
@@ -314,13 +347,10 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 
 func (c *compiler) compileSetStmt(v *ast.SetStmt) {
 	// Make a slot for this variable if it doesn't exist.
-	sym, ok := c.compiled.VarSymbols[v.Name]
-	if !ok {
-		sym = c.compiled.AddVar(v.Name)
-	}
+	c.compiled.AddVar(v.Name)
 
 	code := []vm.Instruction{
-		I("store", sym.GetOffset()),
+		I("store", Unresolved{v.Name, SymbolTypeVar}),
 	}
 
 	v.SetMeta(code)
