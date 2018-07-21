@@ -107,6 +107,8 @@ func reverseParams(node interface{}, depth int) bool {
 	switch t := node.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = t.Y, t.X
+	case *ast.List:
+		reverse(t.Elements)
 	}
 	return true
 }
@@ -184,6 +186,8 @@ func (c *compiler) compileNode(node interface{}, depth int) bool {
 		c.compileIdent(t)
 	case *ast.SetStmt:
 		c.compileSetStmt(t)
+	case *ast.List:
+		c.compileList(t)
 	}
 
 	return c.compileError == nil
@@ -196,6 +200,20 @@ func (c *compiler) compileNumber(v *ast.Number) {
 
 	v.SetMeta(code)
 	//instructions = append(instructions, code...)
+}
+
+func (c *compiler) compileList(v *ast.List) {
+	ndx, ok := c.builtinIndexes["]"]
+	if !ok {
+		c.compileError = fmt.Errorf("No builtin ']' found for list construction")
+		return
+	}
+
+	code := []vm.Instruction{
+		I("callb", CallBuiltinOperand{Index: ndx, NumParms: len(v.Elements)}),
+	}
+
+	v.SetMeta(code)
 }
 
 func (c *compiler) compileBinaryExpr(v *ast.BinaryExpr) {
@@ -252,41 +270,71 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 func (c *compiler) compileFuncCall(v *ast.FuncCall) {
 	expectedNumArgs := -1
 
-	if fnDefNode, ok := c.functions[v.Name]; ok {
-		expectedNumArgs = len(fnDefNode.Args)
+	genUserDefCall := func() []vm.Instruction {
+		// Here we store the function name instead of the function address for the call.
+		// We can't store the address yet because the symbol may be in another compilation unit,
+		// so it may (a) be unresolved, or (b) be in this unit but this unit is linked after another
+		// so the offset will change.
+
+		return []vm.Instruction{
+			I("call", Unresolved{v.Name, SymbolTypeFn}),
+		}
 	}
 
-	if expectedNumArgs == -1 {
+	genBuiltinCall := func(ndx, numParms int) []vm.Instruction {
+		return []vm.Instruction{
+			I("callb", CallBuiltinOperand{Index: ndx, NumParms: numParms}),
+		}
+	}
+
+	// First, check if it's user-defined
+	found := false
+	isBuiltin := false
+	builtinIndex := 0
+
+	if fnDefNode, ok := c.functions[v.Name]; ok {
+		expectedNumArgs = len(fnDefNode.Args)
+		found = true
+	}
+
+	if !found {
 		if c.ref != nil {
 			if sym, ok := c.ref.FnSymbols[v.Name]; ok {
 				fnSym := sym.(*FuncSymbol)
 				expectedNumArgs = fnSym.NumArgs
+				found = true
 			}
 		}
 	}
 
-	if expectedNumArgs == -1 {
+	if !found {
+		// Not user-defined. Check if it's builtin
+		ndx, ok := c.builtinIndexes[v.Name]
+		if ok {
+			found = true
+			isBuiltin = true
+			builtinIndex = ndx
+		}
+	}
+
+	if !found {
 		c.compileError = fmt.Errorf("No function defined with name %s", v.Name)
 		return
 	}
 
-	if expectedNumArgs != len(v.Args) {
+	if !isBuiltin && expectedNumArgs != len(v.Args) {
 		c.compileError = fmt.Errorf("Function %s expects %d arguments, but it is being called with %d", v.Name, expectedNumArgs, len(v.Args))
 		return
 	}
 
 	// Reverse children
-	for i := len(v.Args)/2 - 1; i >= 0; i-- {
-		opp := len(v.Args) - 1 - i
-		v.Args[i], v.Args[opp] = v.Args[opp], v.Args[i]
-	}
+	reverse(v.Args)
 
-	// Here we store the function name instead of the function address for the call.
-	// We can't store the address yet because the symbol may be in another compilation unit,
-	// so it may (a) be unresolved, or (b) be in this unit but this unit is linked after another
-	// so the offset will change.
-	code := []vm.Instruction{
-		I("call", Unresolved{v.Name, SymbolTypeFn}),
+	var code []vm.Instruction
+	if isBuiltin {
+		code = genBuiltinCall(builtinIndex, len(v.Args))
+	} else {
+		code = genUserDefCall()
 	}
 
 	v.SetMeta(code)

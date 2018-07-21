@@ -66,6 +66,12 @@ func TestCompiledProgs(t *testing.T) {
 			nil,
 			big.NewInt(5),
 		},
+		{
+			"test_list",
+			"li([1,5,6],1)",
+			nil,
+			big.NewInt(5),
+		},
 	}
 
 	for _, tc := range tests {

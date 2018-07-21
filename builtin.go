@@ -160,6 +160,35 @@ func getBytes(i *big.Int) (l BigIntList, err error) {
 
 /*** List functions ***/
 
+func listNew(args ...interface{}) (interface{}, error) {
+
+	// Determine type of list
+	isInts := true
+	for i, v := range args {
+		_, isInt := v.(*big.Int)
+		_, isFlt := v.(*big.Float)
+		if !isInt && !isFlt {
+			return nil, fmt.Errorf("lists may only contain ints and floats, but element at index %d is %T", i, v)
+		}
+
+		if i == 0 {
+			isInts = isInt
+		} else {
+			if isInts && !isInt {
+				return nil, fmt.Errorf("lists must contain only ints or only floats; list is ints until element at index %d", i)
+			} else if !isInts && isInt {
+				return nil, fmt.Errorf("lists must contain only ints or only floats; list is floats until element at index %d", i)
+			}
+		}
+	}
+
+	if isInts {
+		return NewBigIntList(args)
+	} else {
+		return NewBigFloatList(args)
+	}
+}
+
 func listLen(l interface{}) (*big.Int, error) {
 	switch t := l.(type) {
 	case BigIntList:
@@ -365,7 +394,9 @@ func init() {
 	RegisterBuiltin("roll", roll, "roll p1 dice each having p2 sides and sum the outcomes")
 	RegisterBuiltin("bytes", getBytes, "return a list of each byte composing an integer")
 	RegisterBuiltin("if", conditional, "implements if/elsif/else")
+
 	/*** List functions ***/
+	RegisterBuiltin("]", listNew, "return a new list containing the arguments")
 	RegisterBuiltin("llen", listLen, "return length of a list")
 	RegisterBuiltin("li", listIndex, "return element at index p2 in list p1")
 	RegisterBuiltin("lrev", listReverse, "return a copy of list p1 with elements in reverse order")

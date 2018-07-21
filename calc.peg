@@ -280,6 +280,15 @@ Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
 
 List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
 	l := buildSlice(first, rest, 3)
+
+	node := &ast.List{Elements: []ast.Expr{}}
+	for _, v := range l {
+		node.Elements = append(node.Elements, ast.Expr(v))
+		ast.SetParent(v, node)
+	}
+	return node, nil
+
+/*
 	isInts := true
 	for i, v := range l {
     _, isInt := v.(*big.Int)
@@ -304,6 +313,7 @@ List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
 	} else {
 	  return NewBigFloatList(l)
 	}
+*/
 }
 
 //Variable <- id:(Identifier) {
@@ -318,7 +328,7 @@ Identifier <- [a-zA-Z_] [a-zA-Z0-9_]* {
 }
 
 // Allow the operators +,-,*,/ to be a function name
-FunctionName <- ( [a-zA-Z_] [a-zA-Z0-9_]* / "+" / "-" / "*" / "/" / "^" / "&" / "|" / "~" ) {
+FunctionName <- ( [a-zA-Z_] [a-zA-Z0-9_]* / "+" / "-" / "*" / "/" / "^" / "&" / "|" / "~" / "]") {
   return string(c.text), nil
 }
 

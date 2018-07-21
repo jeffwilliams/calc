@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	"reflect"
 )
 
 type Expr interface{}
@@ -72,7 +71,6 @@ type Number struct {
 type List struct {
 	Meta
 	Parent
-	Type     reflect.Type
 	Elements []Expr
 }
 
@@ -156,6 +154,10 @@ func walk(v Visitor, t WalkType, node interface{}, depth int) {
 		// Leaf
 	case *SetStmt:
 		wk(t.Rhs)
+	case *List:
+		for _, v := range t.Elements {
+			wk(v)
+		}
 	default:
 		panic(fmt.Sprintf("ast.Walk: unexpected node type %T", node))
 	}

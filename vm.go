@@ -13,6 +13,8 @@ func NewVM() (m *vm.VM, builtinIndexes map[string]int, err error) {
 		{"-", Funcs["-"]},
 		{"*", Funcs["*"]},
 		{"/", Funcs["/"]},
+		{"]", Funcs["]"]},
+		{"li", Funcs["li"]},
 	}
 
 	builtinIndexes = map[string]int{}
