@@ -13,6 +13,16 @@ const (
 	SymbolTypeVar
 )
 
+func (s SymbolType) String() string {
+	switch s {
+	case SymbolTypeFn:
+		return "function"
+	case SymbolTypeVar:
+		return "var"
+	}
+	return ""
+}
+
 // Symbol represents either the offset and size of a function's code in
 // an instruction slice, or the offset of a variable in a data segment.
 type Symbol interface {

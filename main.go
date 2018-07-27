@@ -22,6 +22,8 @@ import (
 //go:generate $GOPATH/bin/genny -in unary_op.genny -out gen_unary_op.go gen "Op=not,neg"
 
 var outputBase numberBase = decimalBase
+var optDebug = flag.StringP("debug", "d", "", "Enable debugging. Specify one or more of the letters 'a'll, 'p'arse, a's't, 'v'irtual machine execution")
+var optOneLine = flag.BoolP("one", "1", false, "Evaluate the expression passed as the first argument and then exit.")
 
 var completer = readline.NewPrefixCompleter()
 
@@ -138,13 +140,20 @@ func main() {
 		return
 	}
 
+	debugFlags := parseDebugFlags(*optDebug)
+
 	var line string
 
 	for {
+
 		if input != "" {
 			line = input
 			input = ""
 		} else {
+			if *optOneLine {
+				break
+			}
+
 			line, err = rl.Readline()
 			if err != nil {
 				if err == readline.ErrInterrupt {
@@ -158,7 +167,8 @@ func main() {
 			}
 		}
 
-		parsed, err := Parse("last line", []byte(line))
+		parseOpts := Debug(debugFlags&DbgFlagParse > 0)
+		parsed, err := Parse("last line", []byte(line), parseOpts, Memoize(true))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			continue
@@ -166,18 +176,21 @@ func main() {
 			SetGlobal("last", parsed)
 		}
 
-		fmt.Printf("parsed type: %T\n", parsed)
+		if debugFlags&DbgFlagAst > 0 {
+			fmt.Printf("parsed type: %T\n", parsed)
+		}
 		if t, ok := parsed.(*ast.Stmts); ok {
-			t.GetMeta()
-			f := func(node interface{}, depth int) bool {
-				d := depth
-				for ; depth > 0; depth-- {
-					fmt.Printf("  ")
+			if debugFlags&DbgFlagAst > 0 {
+				f := func(node interface{}, depth int) bool {
+					d := depth
+					for ; depth > 0; depth-- {
+						fmt.Printf("  ")
+					}
+					fmt.Printf("Node: %T %+v (depth %d)\n", node, node, d)
+					return true
 				}
-				fmt.Printf("Node: %T %+v (depth %d)\n", node, node, d)
-				return true
+				ast.Walk(f, ast.Pre, t)
 			}
-			ast.Walk(f, ast.Pre, t)
 
 			s := (*compiler.Shared)(nil)
 			if sharedCode != nil {
@@ -197,19 +210,26 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("compiled code:\n")
-			for i, instr := range code {
-				fmt.Printf("%d: %s\n", i, vmach.InstructionString(&instr))
-			}
+			if debugFlags&DbgFlagVm > 0 {
+				fmt.Printf("Compiled code:\n")
+				for i, instr := range code {
+					fmt.Printf("  %d: %s\n", i, vmach.InstructionString(&instr))
+				}
 
-			fmt.Printf("shared code:\n")
-			fmt.Printf("%+v\n", sharedCode)
+				fmt.Printf("Shared code:\n")
+				fmt.Printf("%s\n", sharedCode.String(vmach))
+				fmt.Printf("\n")
+			}
 
 			stepFunc := func(state *vm.State) {
 				fmt.Println(state.Summary(vmach.InstructionSet()))
 			}
 
-			vmopts := vm.RunOpts{StepFunc: stepFunc}
+			var vmopts vm.RunOpts
+			if debugFlags&DbgFlagVm > 0 {
+				vmopts.StepFunc = stepFunc
+				fmt.Printf("Execution Trace: \n")
+			}
 
 			err = vmach.Run(code, &vmopts)
 			if err != nil {
@@ -229,5 +249,9 @@ func main() {
 		}
 
 		printResult(parsed)
+
+		if *optOneLine {
+			break
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/jeffwilliams/calc/vm"
@@ -14,6 +15,30 @@ type Shared struct {
 	FnSymbols SymbolTable
 	// VarSymbols contains offsets for variables
 	VarSymbols SymbolTable
+}
+
+func (s Shared) String(m *vm.VM) string {
+	var buf bytes.Buffer
+
+	fnNames := map[int]string{}
+	for k, v := range s.FnSymbols {
+		fnNames[v.GetOffset()] = k
+	}
+
+	fmt.Fprintf(&buf, "Functions:\n")
+
+	for i, instr := range s.Functions {
+		if name, ok := fnNames[i]; ok {
+			fmt.Fprintf(&buf, "%s:\n", name)
+		}
+		fmt.Fprintf(&buf, "  %d: %s\n", i, m.InstructionString(&instr))
+	}
+	fmt.Fprintf(&buf, "FnSymbols:\n")
+	fmt.Fprintf(&buf, "%+v\n", s.FnSymbols)
+	fmt.Fprintf(&buf, "VarSymbols:\n")
+	fmt.Fprintf(&buf, "%+v\n", s.VarSymbols)
+
+	return buf.String()
 }
 
 // AddFn adds a function to the end of the Shared.
