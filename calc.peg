@@ -251,7 +251,7 @@ FuncCall "function call" <- name:FunctionName _ '(' parms:FuncParms ')' {
 	return node, nil
 }
 
-Lambda "lambda" <- "def" _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ '{' _ expr:([^}]+) _ '}' {
+Lambda "lambda" <- "def" _ '(' _ parms:DefStmtParms _ ')' _ help:( '"' DefHelp '"' )? _ '{' _ expr:Expr _ '}' {
 	return handleFuncDef(parms, help, expr)
 }
 
@@ -328,6 +328,7 @@ Identifier <- [a-zA-Z_] [a-zA-Z0-9_]* {
 }
 
 // Allow the operators +,-,*,/ to be a function name
+// Never allow @ in a function name: it's used internally for naming lambdas.
 FunctionName <- ( [a-zA-Z_] [a-zA-Z0-9_]* / "+" / "-" / "*" / "/" / "^" / "&" / "|" / "~" / "]") {
   return string(c.text), nil
 }
@@ -342,7 +343,7 @@ _ "spaces" <- [ \t]*
 EOF <- !.
 
 // Statements 
-Stmt "statement" <- s:(SetSettingStmt / SetStmt / DefStmt / HelpStmt) {
+Stmt "statement" <- _ s:(SetSettingStmt / SetStmt / DefStmt / HelpStmt) _ {
 	return s, nil
 }
 

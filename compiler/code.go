@@ -16,9 +16,17 @@ import (
 type nodeCtx struct {
 }
 
+// Unresolved is used as a placeholder where an instruction is generated,
+// but the symbol that should be used for the operand is not yet available
 type Unresolved struct {
 	name string
 	typ  SymbolType
+}
+
+// FnMeta is the metadata for functions
+type FnMeta struct {
+	main []vm.Instruction
+	fn   []vm.Instruction
 }
 
 func reverseParams(node interface{}, depth int) bool {
@@ -33,13 +41,16 @@ func reverseParams(node interface{}, depth int) bool {
 
 type compiler struct {
 	compiled       *Compiled
+	moduleId       string
 	compileError   error
 	builtinIndexes map[string]int
 	ref            *Shared
 	functions      map[string]*ast.FuncDef
+	vars           map[string]*ast.SetStmt
+	lambdaCnt      int
 }
 
-func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int, ref *Shared) {
+func (c *compiler) compile(moduleId string, tree interface{}, builtinIndexes map[string]int, ref *Shared) {
 	c.compiled = &Compiled{
 		Main: make([]vm.Instruction, 0, 1000),
 		Shared: Shared{
@@ -51,9 +62,12 @@ func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int, ref 
 	c.builtinIndexes = builtinIndexes
 	c.ref = ref
 	c.functions = make(map[string]*ast.FuncDef)
+	c.vars = make(map[string]*ast.SetStmt)
+	c.moduleId = moduleId
 
-	// Find all functions defined in this compilation unit
+	// Find all functions and variables defined in this compilation unit
 	ast.Walk(c.buildFunctionTable, ast.Pre, tree)
+	ast.Walk(c.buildVarTable, ast.Pre, tree)
 
 	// Reverse the parameters of binary expressions so that they are pushed on the
 	// stack in the right order.
@@ -73,7 +87,16 @@ func (c *compiler) compile(tree interface{}, builtinIndexes map[string]int, ref 
 
 func (c *compiler) buildFunctionTable(node interface{}, depth int) bool {
 	if def, ok := node.(*ast.FuncDef); ok {
-		c.functions[def.Name] = def
+		if def.Name != "" {
+			c.functions[def.Name] = def
+		}
+	}
+	return true
+}
+
+func (c *compiler) buildVarTable(node interface{}, depth int) bool {
+	if def, ok := node.(*ast.SetStmt); ok {
+		c.vars[def.Name] = def
 	}
 	return true
 }
@@ -153,7 +176,8 @@ func (c *compiler) compileBinaryExpr(v *ast.BinaryExpr) {
 func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// Function defs are special because they need to be placed either at the
 	// beginning of memory (in which case we start the VM with a jump to the main code)
-	// or placed at the end of memory.
+	// or placed at the end of memory (in which case we halt in the main code before the
+	// function defs).
 
 	// Here we need to suck up all the code from our children, and leave them empty,
 	// and store it on ourself. When the link happens, we'll be placed at the end
@@ -182,79 +206,72 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	collected = append(collected, I("leave", len(v.Args)))
 	collected = append(collected, I("return", nil))
 
-	v.SetMeta(collected)
+	// A function def can also be a lambda, being an unnamed function that acts as
+	// a value. In this case we need to generate the function code, that gets stored
+	// in the function area, and some immediate code that pushes the offset on the stack.
+	// For that reason we generate two sets of instructions: the main part and the function part
+	// as two separate blocks of code in a slice.
+	main := []vm.Instruction{}
+	if v.Name == "" {
+		v.Name = c.genLambdaId()
+		main = []vm.Instruction{
+			I("push", Unresolved{v.Name, SymbolTypeFn}),
+		}
+	}
+
+	v.SetMeta(&FnMeta{main: main, fn: collected})
+
+}
+
+func (c *compiler) genLambdaId() string {
+	s := fmt.Sprintf("@%s.lambda-%d", c.moduleId, c.lambdaCnt)
+	c.lambdaCnt++
+	return s
 }
 
 func (c *compiler) compileFuncCall(v *ast.FuncCall) {
-	expectedNumArgs := -1
-
-	genUserDefCall := func() []vm.Instruction {
-		// Here we store the function name instead of the function address for the call.
-		// We can't store the address yet because the symbol may be in another compilation unit,
-		// so it may (a) be unresolved, or (b) be in this unit but this unit is linked after another
-		// so the offset will change.
-
-		return []vm.Instruction{
-			I("call", Unresolved{v.Name, SymbolTypeFn}),
-		}
-	}
-
-	genBuiltinCall := func(ndx, numParms int) []vm.Instruction {
-		return []vm.Instruction{
-			I("callb", CallBuiltinOperand{Index: ndx, NumParms: numParms}),
-		}
-	}
-
-	// First, check if it's user-defined
-	found := false
-	isBuiltin := false
-	builtinIndex := 0
-
-	if fnDefNode, ok := c.functions[v.Name]; ok {
-		expectedNumArgs = len(fnDefNode.Args)
-		found = true
-	}
-
-	if !found {
-		if c.ref != nil {
-			if sym, ok := c.ref.FnSymbols[v.Name]; ok {
-				fnSym := sym.(*FuncSymbol)
-				expectedNumArgs = fnSym.NumArgs
-				found = true
-			}
-		}
-	}
-
-	if !found {
-		// Not user-defined. Check if it's builtin
-		ndx, ok := c.builtinIndexes[v.Name]
-		if ok {
-			found = true
-			isBuiltin = true
-			builtinIndex = ndx
-		}
-	}
-
-	if !found {
-		c.compileError = fmt.Errorf("No function defined with name %s", v.Name)
+	typ, ident, ok := c.resolveName(v, v.Name)
+	if !ok {
+		c.compileError = fmt.Errorf("No function or variable defined with name %s", v.Name)
 		return
-	}
 
-	if !isBuiltin && expectedNumArgs != len(v.Args) {
-		c.compileError = fmt.Errorf("Function %s expects %d arguments, but it is being called with %d", v.Name, expectedNumArgs, len(v.Args))
-		return
 	}
-
-	// Reverse children
-	reverse(v.Args)
 
 	var code []vm.Instruction
-	if isBuiltin {
-		code = genBuiltinCall(builtinIndex, len(v.Args))
-	} else {
-		code = genUserDefCall()
-	}
 
+	// TODO: Check the expected number of args for the function to see if we are passing that amount.
+
+	switch typ {
+	case ResolvedToFnParmIndex:
+		code = []vm.Instruction{
+			I("pushparm", ident.(int)),
+			I("calls", nil),
+		}
+	case ResolvedToVarNode:
+		fallthrough
+	case ResolvedToVarSymbol:
+		code = []vm.Instruction{
+			I("calli", Unresolved{v.Name, SymbolTypeVar}),
+		}
+
+	case ResolvedToFnNode:
+		fallthrough
+	case ResolvedToFnSymbol:
+		code = []vm.Instruction{
+			I("call", Unresolved{v.Name, SymbolTypeFn}),
+		}
+
+	case ResolvedToBuiltinIndex:
+		code = []vm.Instruction{
+			I("callb", CallBuiltinOperand{Index: ident.(int), NumParms: len(v.Args)}),
+		}
+	default:
+		c.compileError = fmt.Errorf("Name resolved to unknown type %d", typ)
+		return
+
+	}
+	// Reverse children
+	reverse(v.Args)
 	v.SetMeta(code)
 }
 
@@ -264,48 +281,46 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 	// 2. a variable in the closure of the function
 	// 3. a global variable
 
-	// First, check for function parameter
-	node := v.GetParent()
-	for node != nil {
-		if funcDef, ok := node.(*ast.FuncDef); ok {
-			for i, arg := range funcDef.Args {
-				if arg == v.Name {
-					code := []vm.Instruction{
-						I("pushparm", i),
-						I("clone", nil),
-					}
-					v.SetMeta(code)
-					return
-				}
-			}
-			// Only reference parameters from the first function back in the stack.
-			break
-		}
-		node = node.GetParent()
+	typ, ident, ok := c.resolveName(v, v.Name)
+	if !ok {
+		c.compileError = fmt.Errorf("No identifier defined with name %s", v.Name)
+		return
 	}
 
-	// Must be a global var.
-	offset := -1
-	if c.ref != nil {
-		if sym, ok := c.ref.VarSymbols[v.Name]; ok {
-			offset = sym.GetOffset()
+	var code []vm.Instruction
+
+	switch typ {
+	case ResolvedToFnParmIndex:
+		code = []vm.Instruction{
+			I("pushparm", ident.(int)),
+			I("clone", nil),
 		}
-	}
-
-	if offset < 0 {
-		sym, ok := c.compiled.VarSymbols[v.Name]
-		if !ok {
-			c.compileError = fmt.Errorf("Code refers to unresolved variable %s", string(v.Name))
-			return
+	case ResolvedToVarNode:
+		fallthrough
+	case ResolvedToVarSymbol:
+		code = []vm.Instruction{
+			I("load", Unresolved{v.Name, SymbolTypeVar}),
+			I("clone", nil),
+		}
+	case ResolvedToFnNode:
+		fallthrough
+	case ResolvedToFnSymbol:
+		code = []vm.Instruction{
+			I("push", Unresolved{v.Name, SymbolTypeFn}),
 		}
 
-		offset = sym.GetOffset()
-	}
+	case ResolvedToBuiltinIndex:
+		// TODO: Here we need to generate some sort of function F that indirectly
+		// calls the builtin using it's index. We would then push the address of F here.
+		// Maybe we can reserve the first N function slots as functions that just call the
+		// first N builtins. Alternately we can lookup/create a new stub when we need one and
+		// refer to it here.
+		c.compileError = fmt.Errorf("Identifier resolved to builtin, but no way to push builtin address onto stack.")
+		//code = []vm.Instruction{}
+	default:
+		c.compileError = fmt.Errorf("Name resolved to unknown type %d", typ)
+		return
 
-	// Add code to get the value of the variable.
-	code := []vm.Instruction{
-		I("load", offset),
-		I("clone", nil),
 	}
 
 	v.SetMeta(code)
@@ -323,15 +338,23 @@ func (c *compiler) compileSetStmt(v *ast.SetStmt) {
 }
 
 func (c *compiler) linkMainNodes(node interface{}, depth int) bool {
-	if _, ok := node.(*ast.FuncDef); ok {
-		// Later we will put this code at the end of the program, and put the
-		// offset in a function table.
-		return true
-	}
-
 	meta := node.(ast.Metaer).GetMeta()
 	if meta != nil {
-		code := node.(ast.Metaer).GetMeta().([]vm.Instruction)
+		var code []vm.Instruction
+
+		var fnMeta *FnMeta
+		fn, ok := node.(*ast.FuncDef)
+		if ok {
+			fnMeta = fn.GetMeta().(*FnMeta)
+		}
+
+		if ok {
+			// In the case of a lambda, there is some code here to push the function address onto the stack
+			code = fnMeta.main
+		} else {
+			code = node.(ast.Metaer).GetMeta().([]vm.Instruction)
+		}
+
 		if code != nil {
 			c.compiled.Main = append(c.compiled.Main, code...)
 		}
@@ -343,9 +366,12 @@ func (c *compiler) linkFuncNodes(node interface{}, depth int) bool {
 	if def, ok := node.(*ast.FuncDef); ok {
 		// Put this code at the end of the program, and put the
 		// offset in a symbol table.
-		if code := def.GetMeta().([]vm.Instruction); code != nil {
-			c.compiled.AddFn(def.Name, code, len(def.Args))
+		fnMeta := def.GetMeta().(*FnMeta)
+
+		if fnMeta.fn != nil {
+			c.compiled.AddFn(def.Name, fnMeta.fn, len(def.Args))
 		}
+
 		return true
 	}
 	return true

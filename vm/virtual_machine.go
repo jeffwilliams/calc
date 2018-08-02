@@ -16,7 +16,7 @@ func (e ExecError) Error() string {
 }
 
 func (e ExecError) Details() string {
-	return e.VmState.Summary(e.is)
+	return e.VmState.Summary(e.is, nil, nil)
 }
 
 // StringWithStater defines objects that can return a String representing them
@@ -52,9 +52,23 @@ func (s State) InstructionString(is InstructionSet, instr *Instruction) string {
 	return fmt.Sprintf("%s %s (%T)", is.Name(instr.Opcode), opString, instr.Operand)
 }
 
-func (s State) Summary(is InstructionSet) string {
+func (s State) Summary(is InstructionSet, codeNames, dataNames map[int]string) string {
 	var buf bytes.Buffer
+
+	printName := func(tbl map[int]string, i int) {
+		if tbl != nil {
+			if name, ok := tbl[i]; ok {
+				fmt.Fprintf(&buf, "%s:\n", name)
+			}
+		}
+	}
+
 	fmt.Fprintf(&buf, "Ip: %d   Bp: %d\n", s.Ip, s.Bp)
+	fmt.Fprintf(&buf, "Data:\n")
+	for i := 0; i < len(s.Data); i++ {
+		printName(dataNames, i)
+		fmt.Fprintf(&buf, "  %d: %v (%T)\n", i, s.Data[i], s.Data[i])
+	}
 	fmt.Fprintf(&buf, "Stack:\n")
 	for i := len(s.Stack) - 1; i >= 0; i-- {
 		fmt.Fprintf(&buf, "  %d: %v (%T)\n", i, s.Stack[i], s.Stack[i])
@@ -67,6 +81,9 @@ func (s State) Summary(is InstructionSet) string {
 		if i < 0 {
 			continue
 		}
+
+		printName(codeNames, i)
+
 		instr := s.Prog[i]
 		m := "  "
 		if i == s.Ip {

@@ -117,6 +117,10 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 	}
 	r, err := fn.Call(parms)
 	if err != nil {
+		// Restore stack
+		for i, _ := range parms {
+			state.Stack.Push(parms[len(parms)-i-1])
+		}
 		return err
 	}
 	state.Stack.Push(r)
@@ -161,12 +165,30 @@ func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 }
 
+// handle 'calls' instruction (call from stack). Calls the function at the address in the top of
+// the stack.
+// sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
+func callStackOpHandler(state *vm.State, i *vm.Instruction) error {
+	addr := state.Stack.Pop()
+	newIp, ok := addr.(int)
+	if !ok {
+		// Restore state to before instruction (for debugging)
+		state.Stack.Push(addr)
+		return InvalidOperandType
+	}
+
+	state.Stack.Push(state.Ip)
+	state.Ip = newIp - 1
+	return nil
+}
+
 func popOpHandler(state *vm.State, i *vm.Instruction) error {
 	state.Stack.Pop()
 	return nil
 }
 
 func returnOpHandler(state *vm.State, i *vm.Instruction) error {
+
 	addr := state.Stack.Pop()
 	var ok bool
 	state.Ip, ok = addr.(int)
@@ -182,8 +204,12 @@ func returnOpHandler(state *vm.State, i *vm.Instruction) error {
 // Meant for entering function.
 // Set base pointer to the start of the variables in the stack.
 // variables are pushed last-to-first, so they are accessed as return address = bp, arg0 = bp-1, arg1 = bp-2...
+// After this call the frame is: [...][arg1][arg0][return addr][old bp]
+//                                                 bp^
 func enterOpHandler(state *vm.State, i *vm.Instruction) error {
-	state.Bp = len(state.Stack) - 1
+	// Save Bp
+	state.Stack.Push(state.Bp)
+	state.Bp = len(state.Stack) - 2
 	return nil
 }
 
@@ -197,16 +223,19 @@ func leaveOpHandler(state *vm.State, i *vm.Instruction) error {
 		return InvalidOperandType
 	}
 
-	if state.Bp+1 >= len(state.Stack) {
+	if state.Bp+2 >= len(state.Stack) {
 		return InvalidStackSize
 	}
 
-	returnValue := state.Stack[state.Bp+1]
+	returnValue := state.Stack[state.Bp+2]
+	oldBp := state.Stack[state.Bp+1].(int)
 	returnAddr := state.Stack[state.Bp]
 
 	state.Stack = state.Stack[0 : state.Bp-numArgs]
 	state.Stack.Push(returnValue)
 	state.Stack.Push(returnAddr)
+	// Restore Bp
+	state.Bp = oldBp
 	return nil
 }
 

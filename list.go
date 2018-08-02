@@ -48,6 +48,8 @@ func clone(v interface{}) (val interface{}, ok bool) {
 		val = cloneIntList(t)
 	case BigFloatList:
 		val = cloneFloatList(t)
+	case int:
+		val = v
 	default:
 		ok = false
 		val = v

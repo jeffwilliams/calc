@@ -16,6 +16,7 @@ var instructionDesc = []vm.InstructionDescr{
 	{"callb", callBuiltinOpHandler},
 	{"call", callOpHandler},
 	{"calli", callIndirectOpHandler},
+	{"calls", callStackOpHandler},
 	{"pop", popOpHandler},
 	{"return", returnOpHandler},
 	{"enter", enterOpHandler},

@@ -100,3 +100,11 @@ func (s SymbolTable) String() string {
 
 	return buf.String()
 }
+
+func (s SymbolTable) OffsetMap(delta int) map[int]string {
+	m := map[int]string{}
+	for k, v := range s {
+		m[v.GetOffset()+delta] = k
+	}
+	return m
+}

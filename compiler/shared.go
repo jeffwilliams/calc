@@ -11,6 +11,8 @@ import (
 type Shared struct {
 	// Functions contains code for compiled functions
 	Functions []vm.Instruction
+	// Unnamed functions
+	UnnamedFnSymbols []*FuncSymbol
 	// FnSymbols points to the functions in Functions
 	FnSymbols SymbolTable
 	// VarSymbols contains offsets for variables
@@ -20,10 +22,7 @@ type Shared struct {
 func (s Shared) String(m *vm.VM) string {
 	var buf bytes.Buffer
 
-	fnNames := map[int]string{}
-	for k, v := range s.FnSymbols {
-		fnNames[v.GetOffset()] = k
-	}
+	fnNames := s.FnSymbols.OffsetMap(0)
 
 	fmt.Fprintf(&buf, "Functions:\n")
 
@@ -41,17 +40,23 @@ func (s Shared) String(m *vm.VM) string {
 	return buf.String()
 }
 
-// AddFn adds a function to the end of the Shared.
-func (s *Shared) AddFn(name string, code []vm.Instruction, numArgs int) {
-	sym := &FuncSymbol{
+// AddFn adds a function to the end of the Shared. If the name is empty, the function
+// is added as an unnamed function.
+func (s *Shared) AddFn(name string, code []vm.Instruction, numArgs int) (sym *FuncSymbol) {
+	sym = &FuncSymbol{
 		BasicSymbol: BasicSymbol{
 			Offset: len(s.Functions),
 		},
 		Size:    len(code),
 		NumArgs: numArgs,
 	}
-	s.FnSymbols[name] = sym
+	if name == "" {
+		s.UnnamedFnSymbols = append(s.UnnamedFnSymbols, sym)
+	} else {
+		s.FnSymbols[name] = sym
+	}
 	s.Functions = append(s.Functions, code...)
+	return
 }
 
 // AddFn removes a function from the Shared.
@@ -93,14 +98,16 @@ func (s *Shared) Link(more ...*Shared) {
 		for k, v := range o.FnSymbols {
 			s.RemoveFn(k)
 			fnSym := v.(*FuncSymbol)
-			fmt.Printf("Shared.Link: o.Functions: %v\n", o.Functions)
-			fmt.Printf("Shared.Link: %d-%d\n", v.GetOffset(), v.GetOffset()+fnSym.Size)
 			s.AddFn(k, o.Functions[v.GetOffset():v.GetOffset()+fnSym.Size], fnSym.NumArgs)
 		}
 
 		// if variable already exists, leave it at the old location.
 		for k, _ := range o.VarSymbols {
 			s.AddVar(k)
+		}
+
+		for _, v := range o.UnnamedFnSymbols {
+			s.AddFn("", o.Functions[v.GetOffset():v.GetOffset()+v.Size], v.NumArgs)
 		}
 	}
 }

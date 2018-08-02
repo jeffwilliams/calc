@@ -34,14 +34,20 @@ func (c Compiled) String(m *vm.VM) string {
 	return buf.String()
 }
 
+type Linked struct {
+	Code             []vm.Instruction
+	CodeMap, DataMap map[int]string
+}
+
 // Linked returns the combined Main and Functions instructions into one complete runnable
 // program. The format of the program is Main code first, followed by a halt instruction,
 // followed by function code.
-func (c Compiled) Linked() (code []vm.Instruction, err error) {
+//func (c Compiled) Linked() (code []vm.Instruction, codeMap, dataMap map[int]string, err error) {
+func (c Compiled) Linked() (linked Linked, err error) {
 
 	lm := len(c.Main)
 	lf := len(c.Functions)
-	code = make([]vm.Instruction, lm+1+lf)
+	code := make([]vm.Instruction, lm+1+lf)
 	copy(code, c.Main)
 	code[lm] = I("halt", nil)
 	copy(code[lm+1:len(code)], c.Functions)
@@ -78,6 +84,10 @@ func (c Compiled) Linked() (code []vm.Instruction, err error) {
 			code[i] = v
 		}
 	}
+	linked.Code = code
+	linked.DataMap = c.VarSymbols.OffsetMap(0)
+	linked.CodeMap = c.FnSymbols.OffsetMap(delta)
+
 	return
 }
 
@@ -98,9 +108,11 @@ func (c *Compiled) Link(o *Compiled) *Compiled {
 // A final resolved program can then be obtained by calling code.Linked().
 //
 // builtinIndexes is used to find the indexes of the builtin functions for resolving binary operators.
-func Compile(tree interface{}, builtinIndexes map[string]int, ref *Shared) (code *Compiled, err error) {
+// moduleId is used to help generate the internal names for lambdas, in order to make them unique across multiple
+// Shared objects.
+func Compile(moduleId string, tree interface{}, builtinIndexes map[string]int, ref *Shared) (code *Compiled, err error) {
 	var c compiler
-	c.compile(tree, builtinIndexes, ref)
+	c.compile(moduleId, tree, builtinIndexes, ref)
 	return c.compiled, c.compileError
 
 	return

@@ -12,24 +12,19 @@ Some things that would be nice to have:
 
 ## VM/AST
 
-How to allow a function to be assigned to a variable? And closures.
-  - Currently a Func object is stored in the var.
-  - Instead we would need to redefine Func to point to the global offset where the function code begins
-  - How do we do this for a function defined immediately and assigned to a variable?
-  - Put the function at the end of the global compiled code.
-  - What if the function already exists?
-  - Redefine it, and cut out the old code from the global compiled code. IF it's in the middle, we need to repack the code.
-  - Then store the Func object in the variable
-  - When a call is being compiled, we should be able to tell if it's a global function or a variable.
-  - If a variable, generate the code so that it looks up the variable contents at runtime, and calls into the offset for the function
+http://hokstad.com/how-to-implement-closures
 
+Lambdas:
+  - Need to make builtins work as lambdas. Try it now, and it will print an error woth the place needed to be changed
 
-Must allow closures. If each line is compiled and evaluated, a variable may be set to a function 
+Closures: In the outer function that is defining the inner function, create an environment (use some new memory slots specifically
+for this inner function) and when generating the instructions for the inner function have it use the environment slots for the 
+variables. Basically pass a pointer to the environment to the inner function as a new parameter, and it uses it to access the
+variables.
 
-Closures: when the function is defined it will need to have the scope (variables) stored in a data slot.
-  Can make the variable a function struct that has pointer to code, and pointer to scope variables.
-  Alternately just allocate new variables for the function's scope vars, and when compiling the code refer to them
-  directly.
+- For compile errors: store line number and col in the AST nodes. Can be gotten in the PEG actions using c.pos.line, c.pos.col.
+  
+
 
 --
 

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"math/big"
+	"strconv"
+	"testing"
+
 	"github.com/jeffwilliams/calc/ast"
 	"github.com/jeffwilliams/calc/compiler"
 	"github.com/jeffwilliams/calc/vm"
-	"math/big"
-	"testing"
 )
 
 func TestCompiledProgs(t *testing.T) {
@@ -72,9 +74,27 @@ func TestCompiledProgs(t *testing.T) {
 			nil,
 			big.NewInt(5),
 		},
+		{
+			"call_lambda_from_var",
+			"l = def(x){x+1}; l(5)",
+			nil,
+			big.NewInt(6),
+		},
+		{
+			"call_lambda_as_fn_param",
+			"def call_w_3(fn) fn(3); call_w_3(def(x){x+1})",
+			nil,
+			big.NewInt(4),
+		},
+		{
+			"call_lambda_from_var_as_fn_param",
+			"l = def(x){x+1}; def call_w_3(fn) fn(3); call_w_3(l)",
+			nil,
+			big.NewInt(4),
+		},
 	}
 
-	for _, tc := range tests {
+	for i, tc := range tests {
 
 		t.Run(tc.name, func(t *testing.T) {
 			m.State().Data = tc.data
@@ -88,15 +108,17 @@ func TestCompiledProgs(t *testing.T) {
 				t.Fatalf("parsing result is not an AST\n")
 			}
 
-			obj, err := compiler.Compile(parsed, builtinIndices, nil)
+			obj, err := compiler.Compile(strconv.Itoa(i), parsed, builtinIndices, nil)
 			if err != nil {
 				t.Fatalf("compilation failed: %v\n", err)
 			}
 
-			code, err := obj.Linked()
+			linked, err := obj.Linked()
 			if err != nil {
 				t.Fatalf("linking failed: %v\n", err)
 			}
+
+			code := linked.Code
 
 			err = m.Run(code, nil)
 			if err != nil {
@@ -160,14 +182,14 @@ func TestIncrementalLink(t *testing.T) {
 	for _, tc := range tests {
 		var world *compiler.Compiled
 
-		for _, x := range tc.programs {
+		for i, x := range tc.programs {
 
 			s := (*compiler.Shared)(nil)
 			if sharedCode != nil {
 				s = &sharedCode.Shared
 			}
 
-			code, err := compile(x, builtinIndices, s)
+			code, err := compile(strconv.Itoa(i), x, builtinIndices, s)
 			if err != nil {
 				t.Fatalf("compilation failed: %v\n", err)
 			}
@@ -180,7 +202,9 @@ func TestIncrementalLink(t *testing.T) {
 			t.Fatalf("linking failed: %v\n", err)
 		}
 
-		err = m.Run(linked, nil)
+		code := linked.Code
+
+		err = m.Run(code, nil)
 		if err != nil {
 			t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
 		}

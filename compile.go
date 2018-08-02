@@ -7,7 +7,7 @@ import (
 	"github.com/jeffwilliams/calc/compiler"
 )
 
-func compile(prog string, builtinIndexes map[string]int, ref *compiler.Shared) (code *compiler.Compiled, err error) {
+func compile(moduleId string, prog string, builtinIndexes map[string]int, ref *compiler.Shared) (code *compiler.Compiled, err error) {
 	var parsed interface{}
 	parsed, err = Parse("last line", []byte(prog))
 	if err != nil {
@@ -20,7 +20,7 @@ func compile(prog string, builtinIndexes map[string]int, ref *compiler.Shared) (
 		return
 	}
 
-	code, err = compiler.Compile(parsed, builtinIndexes, nil)
+	code, err = compiler.Compile(moduleId, parsed, builtinIndexes, nil)
 	if err != nil {
 		err = fmt.Errorf("Compilation failed: %v\n", err)
 		return

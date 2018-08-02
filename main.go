@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -144,7 +145,7 @@ func main() {
 
 	var line string
 
-	for {
+	for lineNo := 0; true; lineNo++ {
 
 		if input != "" {
 			line = input
@@ -176,11 +177,9 @@ func main() {
 			SetGlobal("last", parsed)
 		}
 
-		if debugFlags&DbgFlagAst > 0 {
-			fmt.Printf("parsed type: %T\n", parsed)
-		}
 		if t, ok := parsed.(*ast.Stmts); ok {
 			if debugFlags&DbgFlagAst > 0 {
+				fmt.Printf("\nAST: \n")
 				f := func(node interface{}, depth int) bool {
 					d := depth
 					for ; depth > 0; depth-- {
@@ -197,38 +196,39 @@ func main() {
 				s = &sharedCode.Shared
 			}
 
-			obj, err := compiler.Compile(t, builtinIndexes, s)
+			obj, err := compiler.Compile(strconv.Itoa(lineNo), t, builtinIndexes, s)
 			if err != nil {
 				fmt.Printf("compilation failed: %v\n", err)
 				continue
 			}
 
 			sharedCode = sharedCode.Link(obj)
-			code, err := sharedCode.Linked()
+			linked, err := sharedCode.Linked()
 			if err != nil {
 				fmt.Printf("final link failed: %v\n", err)
 				continue
 			}
+			code := linked.Code
 
 			if debugFlags&DbgFlagVm > 0 {
-				fmt.Printf("Compiled code:\n")
+				fmt.Printf("\nCompiled code after linking with shared:\n")
 				for i, instr := range code {
 					fmt.Printf("  %d: %s\n", i, vmach.InstructionString(&instr))
 				}
 
-				fmt.Printf("Shared code:\n")
+				fmt.Printf("\nShared code:\n")
 				fmt.Printf("%s\n", sharedCode.String(vmach))
 				fmt.Printf("\n")
 			}
 
 			stepFunc := func(state *vm.State) {
-				fmt.Println(state.Summary(vmach.InstructionSet()))
+				fmt.Println(state.Summary(vmach.InstructionSet(), linked.CodeMap, linked.DataMap))
 			}
 
 			var vmopts vm.RunOpts
 			if debugFlags&DbgFlagVm > 0 {
 				vmopts.StepFunc = stepFunc
-				fmt.Printf("Execution Trace: \n")
+				fmt.Printf("\nExecution Trace: \n")
 			}
 
 			err = vmach.Run(code, &vmopts)
