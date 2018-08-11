@@ -31,7 +31,10 @@ func (c *compiler) resolveName(v ast.Parenter, name string) (typ ResolvedNameTyp
 	found = true
 
 	// 1. function parameters
-	node := v.GetParent()
+	var node ast.Parenter
+	if v != nil {
+		node = v.GetParent()
+	}
 	for ; node != nil; node = node.GetParent() {
 		if funcDef, ok := node.(*ast.FuncDef); ok {
 			for i, arg := range funcDef.Args {

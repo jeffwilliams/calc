@@ -92,6 +92,18 @@ func TestCompiledProgs(t *testing.T) {
 			nil,
 			big.NewInt(4),
 		},
+		{
+			"call_builtin_as_lambda_from_var",
+			"a=+; a(1,2)",
+			nil,
+			big.NewInt(3),
+		},
+		{
+			"call_builtin_as_lambda_as_fn_param",
+			"def call_w_2_1(fn) fn(2,1); call_w_2_1(+)",
+			nil,
+			big.NewInt(3),
+		},
 	}
 
 	for i, tc := range tests {

@@ -23,10 +23,11 @@ type Unresolved struct {
 	typ  SymbolType
 }
 
-// FnMeta is the metadata for functions
-type FnMeta struct {
-	main []vm.Instruction
-	fn   []vm.Instruction
+// Fragment is the metadata for functions
+type Fragment struct {
+	main   []vm.Instruction
+	fnName string
+	fn     []vm.Instruction
 }
 
 func reverseParams(node interface{}, depth int) bool {
@@ -182,7 +183,10 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// Here we need to suck up all the code from our children, and leave them empty,
 	// and store it on ourself. When the link happens, we'll be placed at the end
 	// and added to a symbol table.
-	collected := []vm.Instruction{I("enter", nil)}
+	collected := []vm.Instruction{
+		I("enter", nil),
+		I("vldac", len(v.Args)),
+	}
 
 	collect := func(node interface{}, depth int) bool {
 		if depth == 0 {
@@ -193,7 +197,16 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 		if meta == nil {
 			return true
 		}
-		code := meta.([]vm.Instruction)
+
+		var code []vm.Instruction
+		switch t := meta.(type) {
+		case []vm.Instruction:
+			code = t
+		case *Fragment:
+			code = t.main
+		default:
+			panic("unknown meta type in ast")
+		}
 		if code != nil {
 			collected = append(collected, code...)
 		}
@@ -203,7 +216,7 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 
 	ast.Walk(collect, ast.Post, v)
 
-	collected = append(collected, I("leave", len(v.Args)))
+	collected = append(collected, I("leave", nil))
 	collected = append(collected, I("return", nil))
 
 	// A function def can also be a lambda, being an unnamed function that acts as
@@ -213,20 +226,53 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// as two separate blocks of code in a slice.
 	main := []vm.Instruction{}
 	if v.Name == "" {
-		v.Name = c.genLambdaId()
+		v.Name = c.allocLambdaId()
 		main = []vm.Instruction{
 			I("push", Unresolved{v.Name, SymbolTypeFn}),
 		}
 	}
 
-	v.SetMeta(&FnMeta{main: main, fn: collected})
+	v.SetMeta(&Fragment{
+		main:   main,
+		fnName: v.Name,
+		fn:     collected,
+	})
 
 }
 
-func (c *compiler) genLambdaId() string {
+func (c *compiler) allocLambdaId() string {
 	s := fmt.Sprintf("@%s.lambda-%d", c.moduleId, c.lambdaCnt)
 	c.lambdaCnt++
 	return s
+}
+
+/*
+func (c *compiler) genBuiltinLambdaId(name string) string {
+	s := fmt.Sprintf("@lambda-builtin-%s", name)
+}
+*/
+
+func (c *compiler) genBuiltinLambda(bltnName string, ndx int) (fnName string) {
+	fnName = fmt.Sprintf("@builtin-lambda-%s", bltnName)
+
+	_, _, ok := c.resolveName(nil, fnName)
+	if !ok {
+		code := []vm.Instruction{
+			I("enter", nil),
+			// -1 here means the parameter before the first on the stack,
+			// being the param count
+			//I("pushparm", -1),
+			// Copy the number of args and the args themselves to the end of the stack
+			I("reparm", nil),
+			// -1 here means get the count from the stack
+			I("callb", CallBuiltinOperand{Index: ndx, NumParms: -1}),
+			I("leave", nil),
+			I("return", nil),
+		}
+		c.compiled.AddFn(fnName, code, -1)
+	}
+
+	return
 }
 
 func (c *compiler) compileFuncCall(v *ast.FuncCall) {
@@ -244,6 +290,7 @@ func (c *compiler) compileFuncCall(v *ast.FuncCall) {
 	switch typ {
 	case ResolvedToFnParmIndex:
 		code = []vm.Instruction{
+			I("push", len(v.Args)),
 			I("pushparm", ident.(int)),
 			I("calls", nil),
 		}
@@ -251,6 +298,7 @@ func (c *compiler) compileFuncCall(v *ast.FuncCall) {
 		fallthrough
 	case ResolvedToVarSymbol:
 		code = []vm.Instruction{
+			I("push", len(v.Args)),
 			I("calli", Unresolved{v.Name, SymbolTypeVar}),
 		}
 
@@ -258,6 +306,7 @@ func (c *compiler) compileFuncCall(v *ast.FuncCall) {
 		fallthrough
 	case ResolvedToFnSymbol:
 		code = []vm.Instruction{
+			I("push", len(v.Args)),
 			I("call", Unresolved{v.Name, SymbolTypeFn}),
 		}
 
@@ -287,25 +336,26 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 		return
 	}
 
-	var code []vm.Instruction
+	var main []vm.Instruction
+	var fn []vm.Instruction
 
 	switch typ {
 	case ResolvedToFnParmIndex:
-		code = []vm.Instruction{
+		main = []vm.Instruction{
 			I("pushparm", ident.(int)),
 			I("clone", nil),
 		}
 	case ResolvedToVarNode:
 		fallthrough
 	case ResolvedToVarSymbol:
-		code = []vm.Instruction{
+		main = []vm.Instruction{
 			I("load", Unresolved{v.Name, SymbolTypeVar}),
 			I("clone", nil),
 		}
 	case ResolvedToFnNode:
 		fallthrough
 	case ResolvedToFnSymbol:
-		code = []vm.Instruction{
+		main = []vm.Instruction{
 			I("push", Unresolved{v.Name, SymbolTypeFn}),
 		}
 
@@ -315,15 +365,26 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 		// Maybe we can reserve the first N function slots as functions that just call the
 		// first N builtins. Alternately we can lookup/create a new stub when we need one and
 		// refer to it here.
-		c.compileError = fmt.Errorf("Identifier resolved to builtin, but no way to push builtin address onto stack.")
-		//code = []vm.Instruction{}
+		//c.compileError = fmt.Errorf("Identifier resolved to builtin, but no way to push builtin address onto stack.")
+		shimName := c.genBuiltinLambda(v.Name, ident.(int))
+		main = []vm.Instruction{
+			I("push", Unresolved{shimName, SymbolTypeFn}),
+		}
+
 	default:
 		c.compileError = fmt.Errorf("Name resolved to unknown type %d", typ)
 		return
 
 	}
+	//v.SetMeta(&FnMeta{main: main, fn: collected})
+	v.SetMeta(&Fragment{main: main, fn: fn})
+	v.SetMeta(&Fragment{
+		main:   main,
+		fnName: v.Name,
+		fn:     fn,
+	})
 
-	v.SetMeta(code)
+	//v.SetMeta(code)
 }
 
 func (c *compiler) compileSetStmt(v *ast.SetStmt) {
@@ -341,18 +402,13 @@ func (c *compiler) linkMainNodes(node interface{}, depth int) bool {
 	meta := node.(ast.Metaer).GetMeta()
 	if meta != nil {
 		var code []vm.Instruction
-
-		var fnMeta *FnMeta
-		fn, ok := node.(*ast.FuncDef)
-		if ok {
-			fnMeta = fn.GetMeta().(*FnMeta)
-		}
-
-		if ok {
-			// In the case of a lambda, there is some code here to push the function address onto the stack
-			code = fnMeta.main
-		} else {
-			code = node.(ast.Metaer).GetMeta().([]vm.Instruction)
+		switch t := meta.(type) {
+		case []vm.Instruction:
+			code = t
+		case *Fragment:
+			code = t.main
+		default:
+			panic("unknown meta type in ast")
 		}
 
 		if code != nil {
@@ -366,10 +422,10 @@ func (c *compiler) linkFuncNodes(node interface{}, depth int) bool {
 	if def, ok := node.(*ast.FuncDef); ok {
 		// Put this code at the end of the program, and put the
 		// offset in a symbol table.
-		fnMeta := def.GetMeta().(*FnMeta)
+		fnMeta := def.GetMeta().(*Fragment)
 
 		if fnMeta.fn != nil {
-			c.compiled.AddFn(def.Name, fnMeta.fn, len(def.Args))
+			c.compiled.AddFn(fnMeta.fnName, fnMeta.fn, len(def.Args))
 		}
 
 		return true

@@ -13,6 +13,7 @@ var InvalidFunction = fmt.Errorf("no function with that index")
 var InvalidStackSize = fmt.Errorf("stack size is not valid for the instruction")
 var InvalidAddress = fmt.Errorf("address into data segment is invalid")
 var InvalidVariableType = fmt.Errorf("variable had wrong type")
+var InvalidArgumentCount = fmt.Errorf("wrong number of arguments passed to function")
 
 // push an immediate value onto the stack
 func pushOpHandler(state *vm.State, i *vm.Instruction) error {
@@ -106,8 +107,17 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 	}
 
 	n := arg.NumParms
+	if n < 0 {
+		// num parms not specified in operand.
+		// it must be on the stack
+		n = state.Stack.Pop().(int)
+	}
 
 	if n > len(state.Stack) {
+		// restore stack
+		if arg.NumParms < 0 {
+			state.Stack.Push(n)
+		}
 		return InvalidStackSize
 	}
 
@@ -120,6 +130,9 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 		// Restore stack
 		for i, _ := range parms {
 			state.Stack.Push(parms[len(parms)-i-1])
+		}
+		if arg.NumParms < 0 {
+			state.Stack.Push(n)
 		}
 		return err
 	}
@@ -202,34 +215,43 @@ func returnOpHandler(state *vm.State, i *vm.Instruction) error {
 }
 
 // Meant for entering function.
-// Set base pointer to the start of the variables in the stack.
+// Set base pointer to the index in the stack of the argument count (immediately below which are the variables)
 // variables are pushed last-to-first, so they are accessed as return address = bp, arg0 = bp-1, arg1 = bp-2...
-// After this call the frame is: [...][arg1][arg0][return addr][old bp]
-//                                                 bp^
+// After this call the frame is: [...][arg1][arg0][argcnt][return addr][old bp]
 func enterOpHandler(state *vm.State, i *vm.Instruction) error {
 	// Save Bp
 	state.Stack.Push(state.Bp)
-	state.Bp = len(state.Stack) - 2
+	state.Bp = len(state.Stack) - 3
+	return nil
+}
+
+func validateArgCount(state *vm.State, i *vm.Instruction) error {
+	exp, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+	if exp < 0 {
+		return nil
+	}
+	numArgs := state.Stack[state.Bp]
+	if exp != numArgs {
+		return InvalidArgumentCount
+	}
 	return nil
 }
 
 // Meant for leaving function.
 // Clean up function parameters, and setup stack in preparation for return.
-// Assumes bp is set, and that bp+1 is return value, bp is return address, bp-1 is arg0, bp-2 is arg1,...
 // Fixes stack so that top is return address, top-1 is return value, and N arguments are removed.
 func leaveOpHandler(state *vm.State, i *vm.Instruction) error {
-	numArgs, ok := i.Operand.(int)
-	if !ok {
-		return InvalidOperandType
-	}
-
-	if state.Bp+2 >= len(state.Stack) {
+	if state.Bp+3 >= len(state.Stack) {
 		return InvalidStackSize
 	}
 
-	returnValue := state.Stack[state.Bp+2]
-	oldBp := state.Stack[state.Bp+1].(int)
-	returnAddr := state.Stack[state.Bp]
+	returnValue := state.Stack[state.Bp+3]
+	oldBp := state.Stack[state.Bp+2].(int)
+	returnAddr := state.Stack[state.Bp+1]
+	numArgs := state.Stack[state.Bp].(int)
 
 	state.Stack = state.Stack[0 : state.Bp-numArgs]
 	state.Stack.Push(returnValue)
@@ -277,4 +299,34 @@ func cloneOpHandler(state *vm.State, i *vm.Instruction) error {
 	}
 	state.Stack.Push(val)
 	return nil
+}
+
+type CopyStackOperand struct {
+	Offset, Len int
+}
+
+func (op CopyStackOperand) StringWithState(s *vm.State) string {
+	return fmt.Sprintf("offset (from end) %d, len %d", op.Offset, op.Len)
+}
+
+// Copy a segment of the stack to the end of the stack
+func copyStackOpHandler(state *vm.State, i *vm.Instruction) error {
+	arg, ok := i.Operand.(CopyStackOperand)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	state.Stack.CopyToEnd(arg.Offset, arg.Len)
+	return nil
+}
+
+// Push the argument count and arguments back onto the top of the stack
+// as if the function had just been called.
+func reparmOpHandler(state *vm.State, i *vm.Instruction) error {
+	offset := len(state.Stack) - state.Bp - 1
+	len := state.Stack[state.Bp].(int) + 1
+
+	state.Stack.CopyToEnd(offset, len)
+	return nil
+
 }

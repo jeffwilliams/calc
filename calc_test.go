@@ -852,12 +852,12 @@ func TestMultipleBlocks(t *testing.T) {
 func TestSetVar(t *testing.T) {
 	_, err := Parse("test", []byte("baz = 6"))
 	if err != nil {
-		t.Fatalf("error when setting var: %v")
+		t.Fatalf("error when setting var: %v", err)
 	}
 
 	v, err := Parse("test", []byte("baz"))
 	if err != nil {
-		t.Fatalf("error when reading var: %v")
+		t.Fatalf("error when reading var: %v", err)
 	}
 
 	if !numEql(v, big.NewInt(6)) {

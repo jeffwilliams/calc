@@ -25,6 +25,7 @@ import (
 var outputBase numberBase = decimalBase
 var optDebug = flag.StringP("debug", "d", "", "Enable debugging. Specify one or more of the letters 'a'll, 'p'arse, a's't, 'v'irtual machine execution")
 var optOneLine = flag.BoolP("one", "1", false, "Evaluate the expression passed as the first argument and then exit.")
+var optInitFile = flag.StringP("init", "i", "$HOME/.calcrc", "Read the specidied file before reading from stdin. Set to the empty string to disable reading init files")
 
 var completer = readline.NewPrefixCompleter()
 
@@ -52,8 +53,8 @@ func updateAutocomplete() {
 	completer.SetChildren(items)
 }
 
-func LoadInitScript() (err error) {
-	path := os.ExpandEnv("$HOME/.calcrc")
+func LoadInitScript(path string) (err error) {
+	path = os.ExpandEnv(path)
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -123,7 +124,9 @@ func main() {
 
 	input := strings.Join(flag.Args(), " ")
 
-	LoadInitScript()
+	if *optInitFile != "" {
+		LoadInitScript(*optInitFile)
+	}
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:       "> ",
