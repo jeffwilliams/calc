@@ -23,11 +23,18 @@ type Unresolved struct {
 	typ  SymbolType
 }
 
-// Fragment is the metadata for functions
-type Fragment struct {
+// fragment is the metadata for functions. It contains fragments of
+// code that should be put into the shared code segment (fn) and the main
+// code segment (main).
+type fragment struct {
 	main   []vm.Instruction
 	fnName string
 	fn     []vm.Instruction
+}
+
+type fnMeta struct {
+	fragment
+	closure *closure
 }
 
 func reverseParams(node interface{}, depth int) bool {
@@ -48,7 +55,8 @@ type compiler struct {
 	ref            *Shared
 	functions      map[string]*ast.FuncDef
 	vars           map[string]*ast.SetStmt
-	lambdaCnt      int
+	lambdaNameGen  nameGenerator
+	closureNameGen nameGenerator
 }
 
 func (c *compiler) compile(moduleId string, tree interface{}, builtinIndexes map[string]int, ref *Shared) {
@@ -65,6 +73,8 @@ func (c *compiler) compile(moduleId string, tree interface{}, builtinIndexes map
 	c.functions = make(map[string]*ast.FuncDef)
 	c.vars = make(map[string]*ast.SetStmt)
 	c.moduleId = moduleId
+	c.lambdaNameGen = newNameGenerator(fmt.Sprintf("@%s.lambda-%d", c.moduleId))
+	c.closureNameGen = newNameGenerator(fmt.Sprintf("@%s.closure-var-%d", c.moduleId))
 
 	// Find all functions and variables defined in this compilation unit
 	ast.Walk(c.buildFunctionTable, ast.Pre, tree)
@@ -104,18 +114,6 @@ func (c *compiler) buildVarTable(node interface{}, depth int) bool {
 
 func (c *compiler) compileNode(node interface{}, depth int) bool {
 	switch t := node.(type) {
-	/*
-		case *Stmts:
-			for _, s := range t.Stmts {
-				wk(s)
-			}
-		case *UnaryExpr:
-			wk(t.X)
-		case *FuncCall:
-			for _, a := range t.Args {
-				wk(a)
-			}
-	*/
 	case *ast.FuncCall:
 		c.compileFuncCall(t)
 	case *ast.BinaryExpr:
@@ -173,7 +171,6 @@ func (c *compiler) compileBinaryExpr(v *ast.BinaryExpr) {
 	//instructions = append(instructions, code...)
 }
 
-// TODO: Not tested yet. Working on VM instructions to support this
 func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// Function defs are special because they need to be placed either at the
 	// beginning of memory (in which case we start the VM with a jump to the main code)
@@ -202,7 +199,7 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 		switch t := meta.(type) {
 		case []vm.Instruction:
 			code = t
-		case *Fragment:
+		case *fragment:
 			code = t.main
 		default:
 			panic("unknown meta type in ast")
@@ -226,24 +223,21 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// as two separate blocks of code in a slice.
 	main := []vm.Instruction{}
 	if v.Name == "" {
-		v.Name = c.allocLambdaId()
+		v.Name = c.lambdaNameGen.alloc()
 		main = []vm.Instruction{
 			I("push", Unresolved{v.Name, SymbolTypeFn}),
 		}
 	}
 
-	v.SetMeta(&Fragment{
-		main:   main,
-		fnName: v.Name,
-		fn:     collected,
+	v.SetMeta(&fnMeta{
+		fragment{
+			main:   main,
+			fnName: v.Name,
+			fn:     collected,
+		},
+		nil,
 	})
 
-}
-
-func (c *compiler) allocLambdaId() string {
-	s := fmt.Sprintf("@%s.lambda-%d", c.moduleId, c.lambdaCnt)
-	c.lambdaCnt++
-	return s
 }
 
 /*
@@ -324,6 +318,11 @@ func (c *compiler) compileFuncCall(v *ast.FuncCall) {
 	v.SetMeta(code)
 }
 
+func isFn(v ast.Parenter) bool {
+	_, ok := v.(*ast.FuncDef)
+	return ok
+}
+
 func (c *compiler) compileIdent(v *ast.Ident) {
 	// Figure out what this is referring to. In order of scope it is either:
 	// 1. a function parameter
@@ -358,6 +357,17 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 		main = []vm.Instruction{
 			I("push", Unresolved{v.Name, SymbolTypeFn}),
 		}
+	case ResolvedToAncestorFnParmIndex:
+		// This requires a closure.
+		// Find current lambda
+		lambda := ast.Ancestor(v, isFn)
+		if lambda == nil {
+			break
+		}
+
+		// Here we should add some variables to the env.
+		// Then gen code that:
+		//   push the first parameter to function (closure env) and dereference it indirectly.
 
 	case ResolvedToBuiltinIndex:
 		// TODO: Here we need to generate some sort of function F that indirectly
@@ -376,9 +386,7 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 		return
 
 	}
-	//v.SetMeta(&FnMeta{main: main, fn: collected})
-	v.SetMeta(&Fragment{main: main, fn: fn})
-	v.SetMeta(&Fragment{
+	v.SetMeta(&fragment{
 		main:   main,
 		fnName: v.Name,
 		fn:     fn,
@@ -405,7 +413,9 @@ func (c *compiler) linkMainNodes(node interface{}, depth int) bool {
 		switch t := meta.(type) {
 		case []vm.Instruction:
 			code = t
-		case *Fragment:
+		case *fragment:
+			code = t.main
+		case *fnMeta:
 			code = t.main
 		default:
 			panic("unknown meta type in ast")
@@ -422,7 +432,7 @@ func (c *compiler) linkFuncNodes(node interface{}, depth int) bool {
 	if def, ok := node.(*ast.FuncDef); ok {
 		// Put this code at the end of the program, and put the
 		// offset in a symbol table.
-		fnMeta := def.GetMeta().(*Fragment)
+		fnMeta := def.GetMeta().(*fnMeta)
 
 		if fnMeta.fn != nil {
 			c.compiled.AddFn(fnMeta.fnName, fnMeta.fn, len(def.Args))

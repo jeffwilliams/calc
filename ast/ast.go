@@ -168,3 +168,15 @@ func walk(v Visitor, t WalkType, node interface{}, depth int) {
 		}
 	}
 }
+
+type Criteria func(Parenter) bool
+
+func Ancestor(node Parenter, crit Criteria) Parenter {
+	for ; node != nil; node = node.GetParent() {
+		if crit(node) {
+			return node
+		}
+	}
+	return nil
+
+}

@@ -19,13 +19,21 @@ type ResolvedNameType int
 
 const (
 	ResolvedToNone ResolvedNameType = iota
+	// ResolvedToFnParmIndex means the name was resolved to the enclosing function
 	ResolvedToFnParmIndex
+	// ResolvedToAncestorFnParmIndex means the name was resolved to some function that is an ancestor of the enclosing function
+	ResolvedToAncestorFnParmIndex
 	ResolvedToVarNode
 	ResolvedToVarSymbol
 	ResolvedToFnNode
 	ResolvedToFnSymbol
 	ResolvedToBuiltinIndex
 )
+
+type fnAndParamIndex struct {
+	node *ast.FuncDef
+	parm int
+}
 
 func (c *compiler) resolveName(v ast.Parenter, name string) (typ ResolvedNameType, val interface{}, found bool) {
 	found = true
@@ -35,17 +43,23 @@ func (c *compiler) resolveName(v ast.Parenter, name string) (typ ResolvedNameTyp
 	if v != nil {
 		node = v.GetParent()
 	}
+	height := 0
+
 	for ; node != nil; node = node.GetParent() {
 		if funcDef, ok := node.(*ast.FuncDef); ok {
 			for i, arg := range funcDef.Args {
 				if arg == name {
-					typ = ResolvedToFnParmIndex
-					val = i
+					if height == 0 {
+						typ = ResolvedToFnParmIndex
+						val = i
+					} else {
+						typ = ResolvedToAncestorFnParmIndex
+						val = fnAndParamIndex{funcDef, i}
+					}
 					return
 				}
 			}
-			// Only reference parameters from the first function back in the stack.
-			break
+			height++
 		}
 	}
 

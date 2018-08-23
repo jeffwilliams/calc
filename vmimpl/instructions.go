@@ -86,14 +86,6 @@ func iAddOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 }
 
-type CallBuiltinOperand struct {
-	Index, NumParms int
-}
-
-func (op CallBuiltinOperand) StringWithState(s *vm.State) string {
-	return fmt.Sprintf("builtin '%s', num parms %d", s.Builtins.Name(op.Index), op.NumParms)
-}
-
 // handle 'call builtin' instruction.
 func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 	arg, ok := i.Operand.(CallBuiltinOperand)
@@ -168,13 +160,25 @@ func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
 		return InvalidAddress
 	}
 
-	arg, ok := argIntf.(int)
-	if !ok {
+	var newIp int
+	switch t := argIntf.(type) {
+	case int:
+		newIp = t
+	case LambdaClosureOperand:
+		newIp = t.LambdaAddr
+		// Push the pointer to the closure env as the first argument to the function.
+		state.Stack.Push(t.ClosureEnv)
+	default:
 		return InvalidVariableType
 	}
 
+	/*arg, ok := argIntf.(int)
+	if !ok {
+		return InvalidVariableType
+	}*/
+
 	state.Stack.Push(state.Ip)
-	state.Ip = arg - 1
+	state.Ip = newIp - 1
 	return nil
 }
 
@@ -183,11 +187,18 @@ func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
 // sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
 func callStackOpHandler(state *vm.State, i *vm.Instruction) error {
 	addr := state.Stack.Pop()
-	newIp, ok := addr.(int)
-	if !ok {
-		// Restore state to before instruction (for debugging)
+
+	var newIp int
+	switch t := addr.(type) {
+	case int:
+		newIp = t
+	case LambdaClosureOperand:
+		newIp = t.LambdaAddr
+		// Push the pointer to the closure env as the first argument to the function.
+		state.Stack.Push(t.ClosureEnv)
+	default:
 		state.Stack.Push(addr)
-		return InvalidOperandType
+		return InvalidVariableType
 	}
 
 	state.Stack.Push(state.Ip)
@@ -299,14 +310,6 @@ func cloneOpHandler(state *vm.State, i *vm.Instruction) error {
 	}
 	state.Stack.Push(val)
 	return nil
-}
-
-type CopyStackOperand struct {
-	Offset, Len int
-}
-
-func (op CopyStackOperand) StringWithState(s *vm.State) string {
-	return fmt.Sprintf("offset (from end) %d, len %d", op.Offset, op.Len)
 }
 
 // Copy a segment of the stack to the end of the stack
