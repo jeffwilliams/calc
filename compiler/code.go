@@ -37,6 +37,13 @@ type fnMeta struct {
 	closure *closure
 }
 
+func (f *fnMeta) GetOrMkClosure() *closure {
+	if f.closure == nil {
+		f.closure = &closure{}
+	}
+	return f.closure
+}
+
 func reverseParams(node interface{}, depth int) bool {
 	switch t := node.(type) {
 	case *ast.BinaryExpr:
@@ -217,10 +224,11 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	collected = append(collected, I("return", nil))
 
 	// A function def can also be a lambda, being an unnamed function that acts as
-	// a value. In this case we need to generate the function code, that gets stored
-	// in the function area, and some immediate code that pushes the offset on the stack.
-	// For that reason we generate two sets of instructions: the main part and the function part
-	// as two separate blocks of code in a slice.
+	// a value. In this case we need to generate the function code, that gets
+	// stored in the function area, and some immediate code that pushes the
+	// offset on the stack.
+	// For that reason we generate two sets of instructions: the main part
+	// and the function part as two separate blocks of code in a slice.
 	main := []vm.Instruction{}
 	if v.Name == "" {
 		v.Name = c.lambdaNameGen.alloc()
@@ -323,6 +331,10 @@ func isFn(v ast.Parenter) bool {
 	return ok
 }
 
+func enclosingFn(v ast.Parenter) *ast.FuncDef {
+	return ast.Ancestor(v, isFn).(*ast.FuncDef)
+}
+
 func (c *compiler) compileIdent(v *ast.Ident) {
 	// Figure out what this is referring to. In order of scope it is either:
 	// 1. a function parameter
@@ -358,16 +370,57 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 			I("push", Unresolved{v.Name, SymbolTypeFn}),
 		}
 	case ResolvedToAncestorFnParmIndex:
+		parm := ident.(fnAndParamIndex)
+
 		// This requires a closure.
 		// Find current lambda
-		lambda := ast.Ancestor(v, isFn)
+		lambda := enclosingFn(v)
 		if lambda == nil {
 			break
 		}
 
-		// Here we should add some variables to the env.
-		// Then gen code that:
-		//   push the first parameter to function (closure env) and dereference it indirectly.
+		//	lambda.
+		//type fnMeta struct {
+		//fragment
+		//closure *closure
+
+		// for the lamba:
+		// - in the fragment's main, add instructions that
+		//   load this variable's value from the closure env
+		//   onto the stack. it will be an instr that takes two
+		//   args: the closures table as the top of the stack (pushed
+		//   using pushparm), and the operand being the index into the
+		//   table.
+		// - in the parent function of the lambda, add code that builds
+		//   the LambdaClosureOperand and pushes it on the stack. the code
+		//   must allocate a new TableOperand in the data segment, then  add
+		//   the fn parameter values needed by the lambda into
+		//   the table, then update the LambdaClosureOperand to point to
+		//   the table, then return (push) the operand.
+		// - to add the fn parameter values needed by the lambda into
+		//   the table in the parent fn, use pushparm, then tstore to
+		//   store top of stack into table at top-1, and slot given by operand
+		//   or use tmake
+		// - to create a LambdaClosureOperand on the top of the stack,
+		//   we must use a new intruction that creates one from the table address
+		//   on the top of stack, and the operand which is the lamba code address
+		// - to use the table indexes the closure uses as the ones the parent fn
+		//   uses to set, put the fn parm index in a closure struct and assign it
+		//   an id, and in the parent use that table to do the pushparms.
+		// - these closures only support parent fn parms, not parents of parents.
+		//
+
+		closure := lambda.GetMeta().(*fnMeta).GetOrMkClosure()
+		id := closure.addEnvEntry(&parm)
+
+		main = []vm.Instruction{
+			I("pushparm", 0), // first parm to lamba  w. closure is closure env table
+			I("tload", id),
+		}
+
+	// Here we should add some ariables to the env.
+	// Then gen code that:
+	//   push the first parameter to function (closure env) and dereference it indirectly.
 
 	case ResolvedToBuiltinIndex:
 		// TODO: Here we need to generate some sort of function F that indirectly

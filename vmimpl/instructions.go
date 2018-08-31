@@ -333,3 +333,66 @@ func reparmOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 
 }
+
+// handle 'tload' instruction. Load the value from the table
+// at top of stack, at index in operand. push it on the stack.
+func tloadOpHandler(state *vm.State, i *vm.Instruction) error {
+	//top := state.Stack.Top()
+	top := state.Stack.Pop()
+	tbl, ok := top.(*TableOperand)
+	if !ok {
+		state.Stack.Push(top)
+		return InvalidOperandType
+	}
+
+	ndx, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	val := (*tbl)[ndx]
+	if !ok {
+		return InvalidAddress
+	}
+
+	state.Stack.Push(val)
+	return nil
+}
+
+func tstoreOpHandler(state *vm.State, i *vm.Instruction) error {
+	val := state.Stack.Pop()
+
+	top := state.Stack.Top()
+	tbl, ok := top.(*TableOperand)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	ndx, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	(*tbl)[ndx] = val
+	if !ok {
+		return InvalidAddress
+	}
+
+	return nil
+}
+
+func tmakeOpHandler(state *vm.State, i *vm.Instruction) error {
+	cnt, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	tbl := &TableOperand{}
+
+	for i := 0; i < cnt; i-- {
+		val := state.Stack.Pop()
+		(*tbl)[i] = val
+	}
+	state.Stack.Push(tbl)
+	return nil
+}

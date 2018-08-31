@@ -1,14 +1,35 @@
 package compiler
 
+type envKey struct {
+	fnName  string
+	parmNdx int
+}
+
+type envVal struct {
+	fnAndParamIndex
+	id int
+}
+
+type env map[envKey]envVal
+
 type closure struct {
-	baseIndex int
-	// allocedNames is the parameters/variables already added to the closure and allocated in the var symbols.
-	// The key is the actual name from the code, and the value is the internal generated name that was added
-	// as the var symbol.
-	// Values should be generated from compiler.closureNameGen
-	allocedNames map[string]string
+	nextId int
+	// These are the parameters of ancestor fns that the lambda refers
+	// to. The fn creating the lambda needs to put these in a table.
+	env env
 }
 
 func newClosure() *closure {
-	return &closure{allocedNames: make(map[string]string)}
+	return &closure{0, make(env)}
+}
+
+func (c *closure) addEnvEntry(f *fnAndParamIndex) (id int) {
+	key := envKey{f.node.Name, f.parm}
+	if v, ok := c.env[key]; ok {
+		return v.id
+	}
+	v := envVal{*f, c.nextId}
+	c.nextId++
+	c.env[key] = v
+	return v.id
 }

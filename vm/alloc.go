@@ -14,19 +14,29 @@ type allocator struct {
 	freeList []int
 }
 
+func newAllocator(data []interface{}) allocator {
+	return allocator{data: data, freeList: make([]int, 0, 100)}
+}
+
 func (a *allocator) alloc() (slot int) {
 	if len(a.freeList) > 0 {
 		slot = a.freeList[len(a.freeList)-1]
+		a.data[slot] = Alloced{}
 		a.freeList = a.freeList[0 : len(a.freeList)-1]
 		return
 	}
 
-	slot = len(a.freeList)
+	slot = len(a.data)
 	a.data = append(a.data, Alloced{})
 	return
 }
 
 func (a *allocator) free(slot int) {
+	if _, ok := a.data[slot].(Free); ok {
+		// already free
+		return
+	}
+
 	a.freeList = append(a.freeList, slot)
 	a.data[slot] = Free{}
 }

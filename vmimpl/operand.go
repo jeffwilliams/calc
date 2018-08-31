@@ -35,14 +35,14 @@ func (op LambdaClosureOperand) StringWithState(s *vm.State) string {
 	return fmt.Sprintf("lambda at %d, closure env at %d", op.LambdaAddr, op.ClosureEnv)
 }
 
-type TableOperand []int
+type TableOperand []interface{}
 
 func (op TableOperand) StringWithState(s *vm.State) string {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "[")
 	for i, v := range op {
-		fmt.Fprintf(&buf, "%d->%d, ", i, v)
+		fmt.Fprintf(&buf, "%d->%v, ", i, v)
 	}
 	fmt.Fprintf(&buf, "]")
 
