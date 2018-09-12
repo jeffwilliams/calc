@@ -107,6 +107,26 @@ func (l BigFloatList) or(a, b BigFloatList) (n BigFloatList, err error) {
 	return l.Or(a, b)
 }
 
+func lsh(a, b interface{}) (r *big.Int, err error) {
+	ai, aIsInt := a.(*big.Int)
+	bi, bIsInt := b.(*big.Int)
+	if !aIsInt || !bIsInt {
+		return nil, fmt.Errorf("the '<<' operation is only defined for integer expressions")
+	}
+	r = ai.Lsh(ai, uint(bi.Uint64()))
+	return
+}
+
+func rsh(a, b interface{}) (r *big.Int, err error) {
+	ai, aIsInt := a.(*big.Int)
+	bi, bIsInt := b.(*big.Int)
+	if !aIsInt || !bIsInt {
+		return nil, fmt.Errorf("the '>>' operation is only defined for integer expressions")
+	}
+	r = ai.Rsh(ai, uint(bi.Uint64()))
+	return
+}
+
 /*** General ***/
 
 func binom(n, k *big.Int) (*big.Int, error) {
@@ -356,6 +376,8 @@ func init() {
 	RegisterBuiltin("|", or, "return p1 | p2 (bitwise or)")
 	RegisterBuiltin("~", not, "return p1 | p2 (bitwise not)")
 	RegisterBuiltin("neg", neg, "return -p1 ")
+	RegisterBuiltin("lsh", lsh, "return p1 << p2 (left shift)")
+	RegisterBuiltin("rsh", rsh, "return p1 >> p2 (right shift)")
 
 	/*** General functions ***/
 	RegisterBuiltin("binom", binom, "binmomial coeffient of (p1, p2)")

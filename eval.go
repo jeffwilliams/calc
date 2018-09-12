@@ -84,6 +84,10 @@ func evalBinaryOp(op string, a, b interface{}) (r interface{}, err error) {
 		return lte(a, b)
 	case ">=":
 		return gte(a, b)
+	case "<<":
+		return lsh(a, b)
+	case ">>":
+		return rsh(a, b)
 	}
 
 	return nil, fmt.Errorf("Unsupported operation %v", op)

@@ -563,6 +563,22 @@ func TestCalc(t *testing.T) {
 			input:  "1--1",
 			output: big.NewInt(2),
 		},
+		{
+			name:   "left_shift",
+			input:  "1<<1",
+			output: big.NewInt(2),
+		},
+		{
+			name:   "right_shift",
+			input:  "8>>2",
+			output: big.NewInt(2),
+		},
+		{
+			name:   "left_shift_on_float",
+			input:  "8.0<<1",
+			output: (*big.Int)(nil),
+			err:    true,
+		},
 		/* commas in numbers is not supported due to ambiguety
 		   with function calls with multiple parameters.
 		   		{
@@ -852,12 +868,12 @@ func TestMultipleBlocks(t *testing.T) {
 func TestSetVar(t *testing.T) {
 	_, err := Parse("test", []byte("baz = 6"))
 	if err != nil {
-		t.Fatalf("error when setting var: %v")
+		t.Fatalf("error when setting var: %v", err)
 	}
 
 	v, err := Parse("test", []byte("baz"))
 	if err != nil {
-		t.Fatalf("error when reading var: %v")
+		t.Fatalf("error when reading var: %v", err)
 	}
 
 	if !numEql(v, big.NewInt(6)) {
