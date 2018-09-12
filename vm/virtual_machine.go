@@ -39,6 +39,8 @@ type State struct {
 	Ip   int
 	// Base pointer
 	Bp int
+	// Performs dynamic allocation of Data
+	alloc allocator
 }
 
 func (s State) InstructionString(is InstructionSet, instr *Instruction) string {
@@ -76,7 +78,7 @@ func (s State) Summary(is InstructionSet, codeNames, dataNames map[int]string) s
 	if len(s.Stack) == 0 {
 		fmt.Fprintf(&buf, "  (empty)\n")
 	}
-	fmt.Fprintf(&buf, "Instructions at Ip ± 10:\n")
+	fmt.Fprintf(&buf, "Instructions at Ip Â± 10:\n")
 	for i := s.Ip - 10; i < s.Ip+10 && i < len(s.Prog); i++ {
 		if i < 0 {
 			continue
@@ -121,6 +123,16 @@ func (s *State) SetData(i int, val interface{}) (ok bool) {
 	return
 }
 
+// AllocData allocates one data slot and returns the address
+func (s *State) AllocData() int {
+	return s.alloc.alloc()
+}
+
+// FreeData frees a slot allocated by AllocData
+func (s *State) FreeData(slot int) {
+	s.alloc.free(slot)
+}
+
 type OpcodeHandler func(state *State, i *Instruction) error
 
 type VM struct {
@@ -156,6 +168,8 @@ func (vm *VM) Run(prog []Instruction, opts *RunOpts) error {
 	vm.state.Ip = 0
 	vm.state.Bp = 0
 	vm.state.Stack = []interface{}{}
+	vm.state.Data = []interface{}{}
+	vm.state.alloc = newAllocator(vm.state.Data)
 	vm.state.Prog = prog
 	vm.state.Halt = false
 	for !vm.state.Halt && vm.state.Ip < len(prog) {

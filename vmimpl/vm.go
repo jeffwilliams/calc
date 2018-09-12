@@ -29,9 +29,13 @@ var instructionDesc = []vm.InstructionDescr{
 	{"clone", cloneOpHandler},
 	{"load", loadOpHandler},
 	{"store", storeOpHandler},
+	{"stores", storeStackOpHandler},
 	{"tload", tloadOpHandler},
 	{"tstore", tstoreOpHandler},
 	{"tmake", tmakeOpHandler},
+	{"alloc", allocOpHandler},
+	{"free", freeOpHandler},
+	{"mkclsr", makeClosureOpHandler},
 }
 
 var instructionOpcode = map[string]uint8{}

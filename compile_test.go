@@ -104,6 +104,12 @@ func TestCompiledProgs(t *testing.T) {
 			nil,
 			big.NewInt(3),
 		},
+		{
+			"call_closure",
+			"def parent(x) def(){x+1}; a = parent(5); a()",
+			nil,
+			big.NewInt(3),
+		},
 	}
 
 	for i, tc := range tests {

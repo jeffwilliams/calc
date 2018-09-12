@@ -1,5 +1,7 @@
 package compiler
 
+import "sort"
+
 type envKey struct {
 	fnName  string
 	parmNdx int
@@ -32,4 +34,18 @@ func (c *closure) addEnvEntry(f *fnAndParamIndex) (id int) {
 	c.nextId++
 	c.env[key] = v
 	return v.id
+}
+
+// sortedEntries returns the closures env entries
+// in descending order of id
+func (c *closure) sortedEntries() (vals []envVal) {
+	vals = make([]envVal, len(c.env))
+	for _, v := range c.env {
+		vals = append(vals, v)
+	}
+	// sort reversed
+	sort.Slice(vals, func(i, j int) bool {
+		return vals[i].id >= vals[j].id
+	})
+	return
 }

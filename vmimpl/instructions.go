@@ -60,6 +60,31 @@ func storeOpHandler(state *vm.State, i *vm.Instruction) error {
 	return nil
 }
 
+// handle 'stores' instruction (store to adress from stack.
+// top of stack is the address to store into, value is
+// second
+func storeStackOpHandler(state *vm.State, i *vm.Instruction) error {
+	top := state.Stack.Pop()
+
+	ptr, ok := top.(int)
+	if !ok {
+		state.Stack.Push(top)
+		return InvalidOperandType
+	}
+
+	val := state.Stack.Pop()
+
+	ok = state.SetData(ptr, val)
+	if !ok {
+		// restore stack
+		state.Stack.Push(val)
+		state.Stack.Push(top)
+		return InvalidAddress
+	}
+
+	return nil
+}
+
 // integer add. add top two values in stack, and push result
 func iAddOpHandler(state *vm.State, i *vm.Instruction) error {
 
@@ -280,7 +305,7 @@ func pushParmOpHandler(state *vm.State, i *vm.Instruction) error {
 		return InvalidOperandType
 	}
 	index = state.Bp - index - 1
-	if index >= len(state.Stack) {
+	if index >= len(state.Stack) || index < 0 {
 		return InvalidOperandValue
 	}
 	state.Stack.Push(state.Stack[index])
@@ -313,6 +338,8 @@ func cloneOpHandler(state *vm.State, i *vm.Instruction) error {
 }
 
 // Copy a segment of the stack to the end of the stack
+// The portion at op.Offset from the end till op.Offset-op.Len from
+// the end is copied to the end. Order is preserved.
 func copyStackOpHandler(state *vm.State, i *vm.Instruction) error {
 	arg, ok := i.Operand.(CopyStackOperand)
 	if !ok {
@@ -394,5 +421,47 @@ func tmakeOpHandler(state *vm.State, i *vm.Instruction) error {
 		(*tbl)[i] = val
 	}
 	state.Stack.Push(tbl)
+	return nil
+}
+
+func allocOpHandler(state *vm.State, i *vm.Instruction) error {
+	state.Stack.Push(state.AllocData())
+	return nil
+}
+
+func freeOpHandler(state *vm.State, i *vm.Instruction) error {
+	slot, ok := state.Stack.Pop().(int)
+	if !ok {
+		return InvalidOperandType
+	}
+	state.FreeData(slot)
+	return nil
+}
+
+func makeClosureOpHandler(state *vm.State, i *vm.Instruction) error {
+	var val LambdaClosureOperand
+
+	// need three inputs:
+	// - lambda address
+	// - closure tbl address
+
+	lambda, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+
+	top := state.Stack.Pop()
+
+	ptr, ok := top.(int)
+	if !ok {
+		state.Stack.Push(top)
+		return InvalidOperandType
+	}
+
+	val.ClosureEnv = ptr
+	val.LambdaAddr = lambda
+
+	state.Stack.Push(val)
+
 	return nil
 }

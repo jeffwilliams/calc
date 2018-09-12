@@ -39,7 +39,7 @@ type fnMeta struct {
 
 func (f *fnMeta) GetOrMkClosure() *closure {
 	if f.closure == nil {
-		f.closure = &closure{}
+		f.closure = newClosure()
 	}
 	return f.closure
 }
@@ -206,15 +206,19 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 		switch t := meta.(type) {
 		case []vm.Instruction:
 			code = t
+			node.(ast.Metaer).SetMeta(nil)
 		case *fragment:
 			code = t.main
+			t.main = nil
+		case *fnMeta:
+			code = t.main
+			t.main = nil
 		default:
 			panic("unknown meta type in ast")
 		}
 		if code != nil {
 			collected = append(collected, code...)
 		}
-		node.(ast.Metaer).SetMeta(nil)
 		return true
 	}
 
@@ -232,8 +236,32 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	main := []vm.Instruction{}
 	if v.Name == "" {
 		v.Name = c.lambdaNameGen.alloc()
-		main = []vm.Instruction{
-			I("push", Unresolved{v.Name, SymbolTypeFn}),
+		var closure *closure
+		//closure := v.GetMeta().(*fnMeta).closure
+		meta := v.GetMeta()
+		if meta != nil {
+			closure = meta.(*fnMeta).closure
+		}
+		if closure != nil {
+			//id := closure.addEnvEntry(&parm)
+			envVals := closure.sortedEntries()
+			for _, ev := range envVals {
+				main = append(main, I("pushparm", ev.parm))
+			}
+			main = append(main, I("tmake", len(envVals)))
+			main = append(main, I("alloc", nil))
+			// copy the tmake and alloc results on the stack
+			// because stores pops them off.
+			main = append(main, I("copys", CopyStackOperand{0, 2}))
+			main = append(main, I("stores", nil))
+			// don't care about table on top of stack. pop it
+			main = append(main, I("pop", nil))
+			main = append(main, I("mkclsr", Unresolved{v.Name, SymbolTypeFn}))
+			// TODO: test this
+		} else {
+			main = []vm.Instruction{
+				I("push", Unresolved{v.Name, SymbolTypeFn}),
+			}
 		}
 	}
 
@@ -410,7 +438,13 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 		// - these closures only support parent fn parms, not parents of parents.
 		//
 
-		closure := lambda.GetMeta().(*fnMeta).GetOrMkClosure()
+		var meta *fnMeta
+		if lambda.GetMeta() != nil {
+			meta = lambda.GetMeta().(*fnMeta)
+		} else {
+			meta = &fnMeta{}
+		}
+		closure := meta.GetOrMkClosure()
 		id := closure.addEnvEntry(&parm)
 
 		main = []vm.Instruction{
