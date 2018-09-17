@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -23,7 +24,7 @@ import (
 //go:generate $GOPATH/bin/genny -in unary_op.genny -out gen_unary_op.go gen "Op=not,neg"
 
 var outputBase numberBase = decimalBase
-var optDebug = flag.StringP("debug", "d", "", "Enable debugging. Specify one or more of the letters 'a'll, 'p'arse, a's't, 'v'irtual machine execution")
+var optDebug = flag.StringP("debug", "d", "", "Enable debugging. Specify one or more of the letters 'a'll, 'p'arse, a's't, 'v'irtual machine execution, assembly language 'h'elp")
 var optOneLine = flag.BoolP("one", "1", false, "Evaluate the expression passed as the first argument and then exit.")
 var optInitFile = flag.StringP("init", "i", "$HOME/.calcrc", "Read the specidied file before reading from stdin. Set to the empty string to disable reading init files")
 
@@ -146,6 +147,21 @@ func main() {
 
 	debugFlags := parseDebugFlags(*optDebug)
 
+	if debugFlags&DbgFlagAsmHelp > 0 {
+		fmt.Printf("Available assembly instructions:\n")
+		instructs := make([]string, len(vmimpl.InstructionHelp))
+		i := 0
+		for k := range vmimpl.InstructionHelp {
+			instructs[i] = k
+			i++
+		}
+		sort.Strings(instructs)
+
+		for _, k := range instructs {
+			fmt.Printf("  %v:\t\t%v\n", k, vmimpl.InstructionHelp[k])
+		}
+	}
+
 	var line string
 
 	for lineNo := 0; true; lineNo++ {
@@ -233,6 +249,8 @@ func main() {
 				vmopts.StepFunc = stepFunc
 				fmt.Printf("\nExecution Trace: \n")
 			}
+			vmopts.ReservedDataSlots = linked.HighestDataOffset + 1
+			vmopts.GeneralRegisterCount = 1
 
 			err = vmach.Run(code, &vmopts)
 			if err != nil {
@@ -248,10 +266,8 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("%v\n", vmach.State().Stack.Top())
+			printResult(vmach.State().Stack.Top())
 		}
-
-		printResult(parsed)
 
 		if *optOneLine {
 			break

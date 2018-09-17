@@ -101,6 +101,7 @@ func (s SymbolTable) String() string {
 	return buf.String()
 }
 
+// OffsetMap returns a map of an offset to the symbol name at that location.
 func (s SymbolTable) OffsetMap(delta int) map[int]string {
 	m := map[int]string{}
 	for k, v := range s {

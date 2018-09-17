@@ -35,8 +35,16 @@ func (c Compiled) String(m *vm.VM) string {
 }
 
 type Linked struct {
-	Code             []vm.Instruction
-	CodeMap, DataMap map[int]string
+	// Code is the runnable code that may be passed to vm.Run
+	Code []vm.Instruction
+
+	// CodeMap contains a map of offsets in the code segment to the symbol at that location
+	CodeMap map[int]string
+
+	// DataMap contains a map of offsets in the data segment to the symbol (variable) at that location
+	DataMap map[int]string
+
+	HighestDataOffset int
 }
 
 // Linked returns the combined Main and Functions instructions into one complete runnable
@@ -86,6 +94,7 @@ func (c Compiled) Linked() (linked Linked, err error) {
 	}
 	linked.Code = code
 	linked.DataMap = c.VarSymbols.OffsetMap(0)
+	linked.HighestDataOffset = c.VarSymbols.HighestOffset()
 	linked.CodeMap = c.FnSymbols.OffsetMap(delta)
 
 	return

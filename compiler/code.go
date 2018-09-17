@@ -13,9 +13,6 @@ import (
 	. "github.com/jeffwilliams/calc/vmimpl"
 )
 
-type nodeCtx struct {
-}
-
 // Unresolved is used as a placeholder where an instruction is generated,
 // but the symbol that should be used for the operand is not yet available
 type Unresolved struct {
@@ -80,8 +77,8 @@ func (c *compiler) compile(moduleId string, tree interface{}, builtinIndexes map
 	c.functions = make(map[string]*ast.FuncDef)
 	c.vars = make(map[string]*ast.SetStmt)
 	c.moduleId = moduleId
-	c.lambdaNameGen = newNameGenerator(fmt.Sprintf("@%s.lambda-%d", c.moduleId))
-	c.closureNameGen = newNameGenerator(fmt.Sprintf("@%s.closure-var-%d", c.moduleId))
+	c.lambdaNameGen = newNameGenerator(fmt.Sprintf("@%s.lambda-%%d", c.moduleId))
+	c.closureNameGen = newNameGenerator(fmt.Sprintf("@%s.closure-var-%%d", c.moduleId))
 
 	// Find all functions and variables defined in this compilation unit
 	ast.Walk(c.buildFunctionTable, ast.Pre, tree)
@@ -184,12 +181,23 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	// or placed at the end of memory (in which case we halt in the main code before the
 	// function defs).
 
+	var closure *closure
+	if v.Name == "" {
+		//closure := v.GetMeta().(*fnMeta).closure
+		meta := v.GetMeta()
+		if meta != nil {
+			closure = meta.(*fnMeta).closure
+		}
+	}
+
+	expectedArgCnt := len(v.Args)
+
 	// Here we need to suck up all the code from our children, and leave them empty,
 	// and store it on ourself. When the link happens, we'll be placed at the end
 	// and added to a symbol table.
 	collected := []vm.Instruction{
 		I("enter", nil),
-		I("vldac", len(v.Args)),
+		I("vldac", expectedArgCnt),
 	}
 
 	collect := func(node interface{}, depth int) bool {
@@ -236,12 +244,6 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 	main := []vm.Instruction{}
 	if v.Name == "" {
 		v.Name = c.lambdaNameGen.alloc()
-		var closure *closure
-		//closure := v.GetMeta().(*fnMeta).closure
-		meta := v.GetMeta()
-		if meta != nil {
-			closure = meta.(*fnMeta).closure
-		}
 		if closure != nil {
 			//id := closure.addEnvEntry(&parm)
 			envVals := closure.sortedEntries()
@@ -254,7 +256,10 @@ func (c *compiler) compileFuncDef(v *ast.FuncDef) {
 			// because stores pops them off.
 			main = append(main, I("copys", CopyStackOperand{0, 2}))
 			main = append(main, I("stores", nil))
-			// don't care about table on top of stack. pop it
+			// The top of the stack is now table address, followed by table itself.
+			// We want to remove the table, but keep the address on the top of the stack because
+			// we use it in mkclsr
+			main = append(main, I("swap", nil))
 			main = append(main, I("pop", nil))
 			main = append(main, I("mkclsr", Unresolved{v.Name, SymbolTypeFn}))
 			// TODO: test this
@@ -443,12 +448,13 @@ func (c *compiler) compileIdent(v *ast.Ident) {
 			meta = lambda.GetMeta().(*fnMeta)
 		} else {
 			meta = &fnMeta{}
+			lambda.SetMeta(meta)
 		}
 		closure := meta.GetOrMkClosure()
 		id := closure.addEnvEntry(&parm)
 
 		main = []vm.Instruction{
-			I("pushparm", 0), // first parm to lamba  w. closure is closure env table
+			I("getgr", ClosureEnvGenReg),
 			I("tload", id),
 		}
 

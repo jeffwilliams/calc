@@ -9,35 +9,6 @@ import (
 //var opcodes []OpcodeHandler
 var InstructTable *vm.InstructionTable
 
-var instructionDesc = []vm.InstructionDescr{
-	{"invalid", haltOpHandler},
-	{"iadd", iAddOpHandler},
-	{"push", pushOpHandler},
-	{"pop", popOpHandler},
-	{"callb", callBuiltinOpHandler},
-	{"call", callOpHandler},
-	{"calli", callIndirectOpHandler},
-	{"calls", callStackOpHandler},
-	{"return", returnOpHandler},
-	{"enter", enterOpHandler},
-	{"leave", leaveOpHandler},
-	{"reparm", reparmOpHandler},
-	{"vldac", validateArgCount},
-	{"pushparm", pushParmOpHandler},
-	{"copys", copyStackOpHandler},
-	{"halt", haltOpHandler},
-	{"clone", cloneOpHandler},
-	{"load", loadOpHandler},
-	{"store", storeOpHandler},
-	{"stores", storeStackOpHandler},
-	{"tload", tloadOpHandler},
-	{"tstore", tstoreOpHandler},
-	{"tmake", tmakeOpHandler},
-	{"alloc", allocOpHandler},
-	{"free", freeOpHandler},
-	{"mkclsr", makeClosureOpHandler},
-}
-
 var instructionOpcode = map[string]uint8{}
 
 func opcode(name string) (code uint8, err error) {

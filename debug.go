@@ -10,6 +10,7 @@ const (
 	DbgFlagParse DbgFlags = 1 << iota
 	DbgFlagAst
 	DbgFlagVm
+	DbgFlagAsmHelp
 	DbgFlagMax
 )
 
@@ -28,6 +29,9 @@ func parseDebugFlags(s string) DbgFlags {
 	}
 	if strings.ContainsRune(s, 'v') {
 		flags |= DbgFlagVm
+	}
+	if strings.ContainsRune(s, 'h') {
+		flags |= DbgFlagAsmHelp
 	}
 	return flags
 }

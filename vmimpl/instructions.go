@@ -7,6 +7,71 @@ import (
 	"github.com/jeffwilliams/calc/vm"
 )
 
+// Use the VM's general register 0 for storing the current closure's environment
+const ClosureEnvGenReg = 0
+
+var instructionDesc = []vm.InstructionDescr{
+	{"invalid", haltOpHandler},
+	{"iadd", iAddOpHandler},
+	{"push", pushOpHandler},
+	{"pop", popOpHandler},
+	{"swap", swapOpHandler},
+	{"callb", callBuiltinOpHandler},
+	{"call", callOpHandler},
+	{"calli", callIndirectOpHandler},
+	{"calls", callStackOpHandler},
+	{"return", returnOpHandler},
+	{"enter", enterOpHandler},
+	{"leave", leaveOpHandler},
+	{"reparm", reparmOpHandler},
+	{"vldac", validateArgCount},
+	{"pushparm", pushParmOpHandler},
+	{"copys", copyStackOpHandler},
+	{"halt", haltOpHandler},
+	{"clone", cloneOpHandler},
+	{"load", loadOpHandler},
+	{"store", storeOpHandler},
+	{"stores", storeStackOpHandler},
+	{"tload", tloadOpHandler},
+	{"tstore", tstoreOpHandler},
+	{"tmake", tmakeOpHandler},
+	{"alloc", allocOpHandler},
+	{"free", freeOpHandler},
+	{"mkclsr", makeClosureOpHandler},
+	{"setgr", setGenRegisterOpHandler},
+	{"getgr", getGenRegisterOpHandler},
+}
+
+var InstructionHelp = map[string]string{
+	"invalid":  "Invalid instruction",
+	"iadd":     "Pop two elements from the stack, add them, and push the result. Stack elements must be type *big.Int",
+	"push":     "Push the operand onto the stack",
+	"pop":      "Pop the top element of the stack, and discard it",
+	"swap":     "Swap the top two elements of the stack",
+	"callb":    "Call the builtin function operand.Index, popping off operand.NumParms arguments from the stack. Push the result onto the stack.",
+	"call":     "Call the function at the instruction index contained in the operand. The current Ip is pushed, then Ip is set to the operand.",
+	"calli":    "Call a function indirectly. The operand is treated an index into the data segment, and the value in that data slot is used as the address to call. If the data slot contains an int, the current Ip is pushed, then Ip is set to Data[operand]. If the data slot contains a LambdaClosureOperand, Data[operand].ClosureEnv is pushed, then Ip is pushed, then Ip is set to Data[operand].LambdaAddr.",
+	"calls":    "Call a function who's address is on the top of stack. Same as calli, except top of stack is used instead of the data segment.",
+	"return":   "Return from a function call. Top of stack is popped and Ip is set to that value. Top of stack must be an int.",
+	"enter":    "Enter a function (setup stack frame). Current value of Bp is pushed and Bp is set to point to the stack slot containing the function argument count, below which are the arguments.",
+	"leave":    "Leave a function (cleanup stack frame). Fixes stack so that top is return address, top-1 is return value, and the function arguments are removed from the stack.",
+	"reparm":   "Push the argument count and arguments back onto the top of the stack as if the function had just been called",
+	"vldac":    "Validate argument count. If the operand does not equal the value at stack[Bp], raise an error. Operand and stack[Bp] must be ints",
+	"pushparm": "Push function parameter onto stack. Push the parameter index contained in the operand, numbered from 0. Parameter index 0 is at Bp-1, index 1 is at Bp-2, etc. Operand must be an int.",
+	"copys":    "Copy a segment of the stack to the end of the stack. The portion at op.Offset from the end till op.Offset-op.Len from the end is copied to the end. Order is preserved.",
+	"halt":     "Halt the VM",
+	"clone":    "Clone the top of the stack. Pop the stack, call Clone on it, and push the result.",
+	"load":     "Load data slot into stack. Reads the data slot at operand and pushes it. Operand must be an int.",
+	"store":    "Store top of stack to data slot. Pop the stack and store the value into the data slot at operand. Operand must be an int.",
+	"stores":   "Store stack element to data slot at address on top of stack. Pop the top of the stack as data slot index, and then pop the top of the stack again and store it to the data slot at that index. Top of stack must be an int.",
+	"tload":    "Load value from table. Pop the table on the top of the stack, retrieve the element from it at the index given by the operand, and push that element. Top of stack must be a TableOperand, and operand must be an int.",
+	"tstore":   "Store value to table. Pop the element on the top of the stack, then store it in the table on the new top of the stack at the index given by the operand. The table is not popped. ",
+	"tmake":    "Make a table. The N topmost stack elements are popped and stored in a table, where N is the operand, and the table is then pushed onto the stack. The operand must be an int.",
+	"alloc":    "Allocate a new data slot. The index of the new slot is pushed on the stack.",
+	"free":     "Free a data slot previously allocated with alloc. The slot to be freed is popped from the top of the stack.",
+	"mkclsr":   "Make a closure. The top of the stack is popped and stored in the closure as the closure environment. The lambda address of the closure is taken from the operand. The resulting closure is pushed on the stack.",
+}
+
 var InvalidOperandType = fmt.Errorf("operand is not valid for instruction")
 var InvalidOperandValue = fmt.Errorf("operand value is out of range")
 var InvalidFunction = fmt.Errorf("no function with that index")
@@ -14,6 +79,7 @@ var InvalidStackSize = fmt.Errorf("stack size is not valid for the instruction")
 var InvalidAddress = fmt.Errorf("address into data segment is invalid")
 var InvalidVariableType = fmt.Errorf("variable had wrong type")
 var InvalidArgumentCount = fmt.Errorf("wrong number of arguments passed to function")
+var InvalidGeneralRegister = fmt.Errorf("no such general register is defined")
 
 // push an immediate value onto the stack
 func pushOpHandler(state *vm.State, i *vm.Instruction) error {
@@ -191,8 +257,12 @@ func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
 		newIp = t
 	case LambdaClosureOperand:
 		newIp = t.LambdaAddr
-		// Push the pointer to the closure env as the first argument to the function.
-		state.Stack.Push(t.ClosureEnv)
+		tbl, ok := state.GetData(t.ClosureEnv)
+		if !ok {
+			return InvalidAddress
+		}
+		state.Gr[ClosureEnvGenReg] = tbl
+
 	default:
 		return InvalidVariableType
 	}
@@ -313,13 +383,13 @@ func pushParmOpHandler(state *vm.State, i *vm.Instruction) error {
 }
 
 // swap top two elements of the stack
-/*func swapOpHandler(state *vm.State, i *vm.Instruction) error {
+func swapOpHandler(state *vm.State, i *vm.Instruction) error {
 	if len(state.Stack) < 2 {
 		return InvalidStackSize
 	}
 	state.Stack.Swap()
 	return nil
-}*/
+}
 
 func haltOpHandler(state *vm.State, i *vm.Instruction) error {
 	state.Halt = true
@@ -366,7 +436,7 @@ func reparmOpHandler(state *vm.State, i *vm.Instruction) error {
 func tloadOpHandler(state *vm.State, i *vm.Instruction) error {
 	//top := state.Stack.Top()
 	top := state.Stack.Pop()
-	tbl, ok := top.(*TableOperand)
+	tbl, ok := top.(Table)
 	if !ok {
 		state.Stack.Push(top)
 		return InvalidOperandType
@@ -377,7 +447,7 @@ func tloadOpHandler(state *vm.State, i *vm.Instruction) error {
 		return InvalidOperandType
 	}
 
-	val := (*tbl)[ndx]
+	val := tbl[ndx]
 	if !ok {
 		return InvalidAddress
 	}
@@ -390,7 +460,7 @@ func tstoreOpHandler(state *vm.State, i *vm.Instruction) error {
 	val := state.Stack.Pop()
 
 	top := state.Stack.Top()
-	tbl, ok := top.(*TableOperand)
+	tbl, ok := top.(*Table)
 	if !ok {
 		return InvalidOperandType
 	}
@@ -414,11 +484,11 @@ func tmakeOpHandler(state *vm.State, i *vm.Instruction) error {
 		return InvalidOperandType
 	}
 
-	tbl := &TableOperand{}
+	tbl := make(Table, cnt)
 
-	for i := 0; i < cnt; i-- {
+	for i := 0; i < cnt; i++ {
 		val := state.Stack.Pop()
-		(*tbl)[i] = val
+		tbl[i] = val
 	}
 	state.Stack.Push(tbl)
 	return nil
@@ -463,5 +533,31 @@ func makeClosureOpHandler(state *vm.State, i *vm.Instruction) error {
 
 	state.Stack.Push(val)
 
+	return nil
+}
+
+func setGenRegisterOpHandler(state *vm.State, i *vm.Instruction) error {
+	top := state.Stack.Pop()
+	ndx, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+	if ndx < 0 || ndx >= len(state.Gr) {
+		return InvalidGeneralRegister
+	}
+	state.Gr[ndx] = top
+	return nil
+}
+
+func getGenRegisterOpHandler(state *vm.State, i *vm.Instruction) error {
+	ndx, ok := i.Operand.(int)
+	if !ok {
+		return InvalidOperandType
+	}
+	if ndx < 0 || ndx >= len(state.Gr) {
+		return InvalidGeneralRegister
+	}
+
+	state.Stack.Push(state.Gr[ndx])
 	return nil
 }

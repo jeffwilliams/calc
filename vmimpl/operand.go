@@ -35,9 +35,9 @@ func (op LambdaClosureOperand) StringWithState(s *vm.State) string {
 	return fmt.Sprintf("lambda at %d, closure env at %d", op.LambdaAddr, op.ClosureEnv)
 }
 
-type TableOperand []interface{}
+type Table []interface{}
 
-func (op TableOperand) StringWithState(s *vm.State) string {
+func (op Table) StringWithState(s *vm.State) string {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "[")

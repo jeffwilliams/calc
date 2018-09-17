@@ -108,7 +108,13 @@ func TestCompiledProgs(t *testing.T) {
 			"call_closure",
 			"def parent(x) def(){x+1}; a = parent(5); a()",
 			nil,
-			big.NewInt(3),
+			big.NewInt(6),
+		},
+		{
+			"call_closure_2",
+			"def parent(x) def(n){x+n}; a = parent(5); a(2)",
+			nil,
+			big.NewInt(7),
 		},
 	}
 
@@ -138,7 +144,12 @@ func TestCompiledProgs(t *testing.T) {
 
 			code := linked.Code
 
-			err = m.Run(code, nil)
+			vmopts := vm.RunOpts{
+				ReservedDataSlots:    linked.HighestDataOffset + 1,
+				GeneralRegisterCount: 1,
+			}
+
+			err = m.Run(code, &vmopts)
 			if err != nil {
 				t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
 			}
@@ -186,7 +197,7 @@ func TestIncrementalLink(t *testing.T) {
 			big.NewInt(2),
 		},
 		{
-			"var_link",
+			"var_link2",
 			[]string{
 				"x=2",
 				"y=3",
@@ -198,43 +209,51 @@ func TestIncrementalLink(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		var world *compiler.Compiled
+		t.Run(tc.name, func(t *testing.T) {
+			var world *compiler.Compiled
 
-		for i, x := range tc.programs {
+			for i, x := range tc.programs {
 
-			s := (*compiler.Shared)(nil)
-			if sharedCode != nil {
-				s = &sharedCode.Shared
+				//t.Logf("Compiling prog %d: %s", i, x)
+				s := (*compiler.Shared)(nil)
+				if world != nil {
+					s = &world.Shared
+				}
+
+				code, err := compile(strconv.Itoa(i), x, builtinIndices, s)
+				if err != nil {
+					t.Fatalf("compilation failed: %v\n", err)
+				}
+
+				world = world.Link(code)
+
+				// We need to run each separate program in case there is code in main that modifies variables
+				linked, err := world.Linked()
+				if err != nil {
+					t.Fatalf("linking failed: %v\n", err)
+				}
+
+				finalCode := linked.Code
+
+				vmopts := vm.RunOpts{
+					ReservedDataSlots:    linked.HighestDataOffset + 1,
+					GeneralRegisterCount: 1,
+				}
+
+				err = m.Run(finalCode, &vmopts)
+				if err != nil {
+					t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
+				}
 			}
 
-			code, err := compile(strconv.Itoa(i), x, builtinIndices, s)
-			if err != nil {
-				t.Fatalf("compilation failed: %v\n", err)
+			if len(m.State().Stack) == 0 {
+				t.Fatalf("stack is empty after program")
 			}
 
-			world = world.Link(code)
-		}
-
-		linked, err := world.Linked()
-		if err != nil {
-			t.Fatalf("linking failed: %v\n", err)
-		}
-
-		code := linked.Code
-
-		err = m.Run(code, nil)
-		if err != nil {
-			t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
-		}
-
-		if len(m.State().Stack) == 0 {
-			t.Fatalf("stack is empty after program")
-		}
-
-		if m.State().Stack.Top().(*big.Int).Cmp(tc.expected) != 0 {
-			t.Fatalf("expected %v but got %v", 5, m.State().Stack.Top())
-
-		}
+			if m.State().Stack.Top().(*big.Int).Cmp(tc.expected) != 0 {
+				t.Fatalf("expected %v but got %v", 5, m.State().Stack.Top())
+			}
+		})
 	}
 
 }

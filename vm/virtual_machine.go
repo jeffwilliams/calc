@@ -39,6 +39,8 @@ type State struct {
 	Ip   int
 	// Base pointer
 	Bp int
+	// General purpose registers
+	Gr []interface{}
 	// Performs dynamic allocation of Data
 	alloc allocator
 }
@@ -66,6 +68,9 @@ func (s State) Summary(is InstructionSet, codeNames, dataNames map[int]string) s
 	}
 
 	fmt.Fprintf(&buf, "Ip: %d   Bp: %d\n", s.Ip, s.Bp)
+	for i, v := range s.Gr {
+		fmt.Fprintf(&buf, "Gr[%d]: %v\n", i, v)
+	}
 	fmt.Fprintf(&buf, "Data:\n")
 	for i := 0; i < len(s.Data); i++ {
 		printName(dataNames, i)
@@ -73,12 +78,17 @@ func (s State) Summary(is InstructionSet, codeNames, dataNames map[int]string) s
 	}
 	fmt.Fprintf(&buf, "Stack:\n")
 	for i := len(s.Stack) - 1; i >= 0; i-- {
-		fmt.Fprintf(&buf, "  %d: %v (%T)\n", i, s.Stack[i], s.Stack[i])
+		m := "  "
+		if i == s.Bp {
+			m = "f>"
+		}
+
+		fmt.Fprintf(&buf, "%s%d: %v (%T)\n", m, i, s.Stack[i], s.Stack[i])
 	}
 	if len(s.Stack) == 0 {
 		fmt.Fprintf(&buf, "  (empty)\n")
 	}
-	fmt.Fprintf(&buf, "Instructions at Ip Â± 10:\n")
+	fmt.Fprintf(&buf, "Instructions at Ip ± 10:\n")
 	for i := s.Ip - 10; i < s.Ip+10 && i < len(s.Prog); i++ {
 		if i < 0 {
 			continue
@@ -159,7 +169,13 @@ func NewVM(is InstructionSet, bs BuiltinSet) (vm *VM, err error) {
 type StepFunc func(state *State)
 
 type RunOpts struct {
+	// StepFunc is the function to be called after each instruction is executed
 	StepFunc StepFunc
+	// ReservedDataSlots is the number of data slots to pre-reserve. Dynamic allocation
+	// will only use slots above this value.
+	ReservedDataSlots int
+	// Number of general registers to allocate
+	GeneralRegisterCount int
 }
 
 // If instructions generate an error, they must restore the stack (and other state) to the state previous
@@ -168,7 +184,11 @@ func (vm *VM) Run(prog []Instruction, opts *RunOpts) error {
 	vm.state.Ip = 0
 	vm.state.Bp = 0
 	vm.state.Stack = []interface{}{}
-	vm.state.Data = []interface{}{}
+	if vm.state.Data == nil {
+		// Preserve data between runs
+		vm.state.Data = make([]interface{}, opts.ReservedDataSlots)
+	}
+	vm.state.Gr = make([]interface{}, opts.GeneralRegisterCount)
 	vm.state.alloc = newAllocator(vm.state.Data)
 	vm.state.Prog = prog
 	vm.state.Halt = false
