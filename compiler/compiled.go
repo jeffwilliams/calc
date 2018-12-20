@@ -81,13 +81,13 @@ func (c Compiled) Linked() (linked Linked, err error) {
 					err = fmt.Errorf("Code refers to unresolved function %s", unr.name)
 					return
 				}
-				v.Operand = getOffset(sym)
+				v.Operand = Ref(getOffset(sym))
 			} else {
 				if !ok {
 					err = fmt.Errorf("Code refers to unresolved variable %s", unr.name)
 					return
 				}
-				v.Operand = sym.GetOffset()
+				v.Operand = Ref(sym.GetOffset())
 			}
 			code[i] = v
 		}

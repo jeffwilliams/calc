@@ -73,6 +73,7 @@ var InstructionHelp = map[string]string{
 }
 
 var InvalidOperandType = fmt.Errorf("operand is not valid for instruction")
+var InvalidTopOfStackType = fmt.Errorf("value on top of stack is not valid for instruction")
 var InvalidOperandValue = fmt.Errorf("operand value is out of range")
 var InvalidFunction = fmt.Errorf("no function with that index")
 var InvalidStackSize = fmt.Errorf("stack size is not valid for the instruction")
@@ -91,12 +92,12 @@ func pushOpHandler(state *vm.State, i *vm.Instruction) error {
 // is a variable index (index into the data segment)
 // pushes the value of the variable
 func loadOpHandler(state *vm.State, i *vm.Instruction) error {
-	ptr, ok := i.Operand.(int)
+	ptr, ok := i.Operand.(Ref)
 	if !ok {
 		return InvalidOperandType
 	}
 
-	val, ok := state.GetData(ptr)
+	val, ok := state.GetData(int(ptr))
 	if !ok {
 		return InvalidAddress
 	}
@@ -109,14 +110,14 @@ func loadOpHandler(state *vm.State, i *vm.Instruction) error {
 // is a variable index (index into the data segment)
 // pops the top of the stack and stores it into the variable
 func storeOpHandler(state *vm.State, i *vm.Instruction) error {
-	ptr, ok := i.Operand.(int)
+	ptr, ok := i.Operand.(Ref)
 	if !ok {
 		return InvalidOperandType
 	}
 
 	val := state.Stack.Pop()
 
-	ok = state.SetData(ptr, val)
+	ok = state.SetData(int(ptr), val)
 	if !ok {
 		// restore stack
 		state.Stack.Push(val)
@@ -132,15 +133,15 @@ func storeOpHandler(state *vm.State, i *vm.Instruction) error {
 func storeStackOpHandler(state *vm.State, i *vm.Instruction) error {
 	top := state.Stack.Pop()
 
-	ptr, ok := top.(int)
+	ptr, ok := top.(Ref)
 	if !ok {
 		state.Stack.Push(top)
-		return InvalidOperandType
+		return InvalidTopOfStackType
 	}
 
 	val := state.Stack.Pop()
 
-	ok = state.SetData(ptr, val)
+	ok = state.SetData(int(ptr), val)
 	if !ok {
 		// restore stack
 		state.Stack.Push(val)
@@ -227,13 +228,13 @@ func callBuiltinOpHandler(state *vm.State, i *vm.Instruction) error {
 // handle 'call' instruction. The operand is the address to call.
 // sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
 func callOpHandler(state *vm.State, i *vm.Instruction) error {
-	arg, ok := i.Operand.(int)
+	arg, ok := i.Operand.(Ref)
 	if !ok {
 		return InvalidOperandType
 	}
 
 	state.Stack.Push(state.Ip)
-	state.Ip = arg - 1
+	state.Ip = int(arg - 1)
 	return nil
 }
 
@@ -241,12 +242,12 @@ func callOpHandler(state *vm.State, i *vm.Instruction) error {
 // is a variable index (index into the data segment)
 // sets Ip (instruction pointer) to the address of the call - 1, and pushes return address
 func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
-	ptr, ok := i.Operand.(int)
+	ptr, ok := i.Operand.(Ref)
 	if !ok {
 		return InvalidOperandType
 	}
 
-	argIntf, ok := state.GetData(ptr)
+	argIntf, ok := state.GetData(int(ptr))
 	if !ok {
 		return InvalidAddress
 	}
@@ -255,9 +256,11 @@ func callIndirectOpHandler(state *vm.State, i *vm.Instruction) error {
 	switch t := argIntf.(type) {
 	case int:
 		newIp = t
+	case Ref:
+		newIp = int(t)
 	case LambdaClosureOperand:
-		newIp = t.LambdaAddr
-		tbl, ok := state.GetData(t.ClosureEnv)
+		newIp = int(t.LambdaAddr)
+		tbl, ok := state.GetData(int(t.ClosureEnv))
 		if !ok {
 			return InvalidAddress
 		}
@@ -287,8 +290,10 @@ func callStackOpHandler(state *vm.State, i *vm.Instruction) error {
 	switch t := addr.(type) {
 	case int:
 		newIp = t
+	case Ref:
+		newIp = int(t)
 	case LambdaClosureOperand:
-		newIp = t.LambdaAddr
+		newIp = int(t.LambdaAddr)
 		// Push the pointer to the closure env as the first argument to the function.
 		state.Stack.Push(t.ClosureEnv)
 	default:
@@ -314,7 +319,7 @@ func returnOpHandler(state *vm.State, i *vm.Instruction) error {
 	if !ok {
 		// Restore state to before instruction (for debugging)
 		state.Stack.Push(addr)
-		return InvalidOperandType
+		return InvalidTopOfStackType
 	}
 
 	return nil
@@ -400,8 +405,12 @@ func cloneOpHandler(state *vm.State, i *vm.Instruction) error {
 	top := state.Stack.Pop()
 	val, ok := Clone(top)
 	if !ok {
+		// might be an internal type
+		val, ok = internalClone(top)
+	}
+	if !ok {
 		state.Stack.Push(top)
-		return InvalidOperandType
+		return InvalidTopOfStackType
 	}
 	state.Stack.Push(val)
 	return nil
@@ -439,7 +448,7 @@ func tloadOpHandler(state *vm.State, i *vm.Instruction) error {
 	tbl, ok := top.(Table)
 	if !ok {
 		state.Stack.Push(top)
-		return InvalidOperandType
+		return InvalidTopOfStackType
 	}
 
 	ndx, ok := i.Operand.(int)
@@ -462,7 +471,7 @@ func tstoreOpHandler(state *vm.State, i *vm.Instruction) error {
 	top := state.Stack.Top()
 	tbl, ok := top.(*Table)
 	if !ok {
-		return InvalidOperandType
+		return InvalidTopOfStackType
 	}
 
 	ndx, ok := i.Operand.(int)
@@ -495,16 +504,16 @@ func tmakeOpHandler(state *vm.State, i *vm.Instruction) error {
 }
 
 func allocOpHandler(state *vm.State, i *vm.Instruction) error {
-	state.Stack.Push(state.AllocData())
+	state.Stack.Push(Ref(state.AllocData()))
 	return nil
 }
 
 func freeOpHandler(state *vm.State, i *vm.Instruction) error {
-	slot, ok := state.Stack.Pop().(int)
+	slot, ok := state.Stack.Pop().(Ref)
 	if !ok {
 		return InvalidOperandType
 	}
-	state.FreeData(slot)
+	state.FreeData(int(slot))
 	return nil
 }
 
@@ -515,14 +524,14 @@ func makeClosureOpHandler(state *vm.State, i *vm.Instruction) error {
 	// - lambda address
 	// - closure tbl address
 
-	lambda, ok := i.Operand.(int)
+	lambda, ok := i.Operand.(Ref)
 	if !ok {
 		return InvalidOperandType
 	}
 
 	top := state.Stack.Pop()
 
-	ptr, ok := top.(int)
+	ptr, ok := top.(Ref)
 	if !ok {
 		state.Stack.Push(top)
 		return InvalidOperandType

@@ -26,9 +26,9 @@ func (op CopyStackOperand) StringWithState(s *vm.State) string {
 // LambdaClosureOperand represents a pointer to a lambda and it's corresponding closure environment
 type LambdaClosureOperand struct {
 	// LambdaAddr points into the code segment
-	LambdaAddr int
+	LambdaAddr Ref
 	// ClosureEnv points into the data segment
-	ClosureEnv int
+	ClosureEnv Ref
 }
 
 func (op LambdaClosureOperand) StringWithState(s *vm.State) string {
@@ -48,3 +48,5 @@ func (op Table) StringWithState(s *vm.State) string {
 
 	return buf.String()
 }
+
+type Ref int
