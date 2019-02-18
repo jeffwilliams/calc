@@ -267,7 +267,7 @@ Number "number" <- n:(Float / Int) {
 Float "float" <- [0-9]* '.' [0-9]+ {
   f := new(big.Float)
   _, err := fmt.Sscan(strings.Replace(string(c.text),",","",-1), f)
-	return ast.Number{Value: f}, err
+	return &ast.Number{Value: f}, err
   //return f, err
 }
 
