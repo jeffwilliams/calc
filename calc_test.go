@@ -2,7 +2,11 @@ package main
 
 import (
 	"math/big"
+	"strconv"
 	"testing"
+
+	"github.com/jeffwilliams/calc/compiler"
+	"github.com/jeffwilliams/calc/vm"
 )
 
 var smallFloat = big.NewFloat(0.00001)
@@ -746,6 +750,11 @@ func TestCalc(t *testing.T) {
 		},
 	}
 
+	m, builtinIndices, err := NewVM()
+	if err != nil {
+		t.Fatalf("creating vm failed: %v", err)
+	}
+
 	fn0 := func() (*big.Int, error) {
 		return big.NewInt(555), nil
 	}
@@ -760,11 +769,45 @@ func TestCalc(t *testing.T) {
 	RegisterBuiltin("funcb", fn1, "")
 	RegisterBuiltin("funcc", fn2, "")
 
-	for _, tc := range tests {
+	var world *compiler.Compiled
+
+	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			parsed, err := Parse("test", []byte(tc.input))
-			// Uncomment the below to print pigeon debug info
-			//parsed, err := Parse("test", []byte(tc.input), Debug(true))
+			s := (*compiler.Shared)(nil)
+			if world != nil {
+				s = &world.Shared
+			}
+
+			code, err := compile(strconv.Itoa(i), tc.input, builtinIndices, s)
+			if err != nil {
+				t.Fatalf("compilation failed: %v\n", err)
+			}
+
+			world = world.Link(code)
+
+			// We need to run each separate program in case there is code in main that modifies variables
+			linked, err := world.Linked()
+			if err != nil {
+				t.Fatalf("linking failed: %v\n", err)
+			}
+
+			finalCode := linked.Code
+
+			vmopts := vm.RunOpts{
+				ReservedDataSlots:    linked.HighestDataOffset + 1,
+				GeneralRegisterCount: 1,
+			}
+
+			err = m.Run(finalCode, &vmopts)
+			if err != nil {
+				t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
+			}
+
+			if len(m.State().Stack) == 0 {
+				t.Fatalf("stack is empty after program")
+			}
+
+			ans := m.State().Stack.Top()
 
 			if err != nil && !tc.err {
 				t.Fatalf("parsing '%s' failed: %v", tc.input, err)
@@ -774,10 +817,9 @@ func TestCalc(t *testing.T) {
 				t.Fatalf("expected error but none occurred")
 			}
 
-			if !teql(parsed, tc.output) {
-				t.Fatalf("expected '%v' (type %T) but got '%v' (type %T)", tc.output, tc.output, parsed, parsed)
+			if !teql(ans, tc.output) {
+				t.Fatalf("expected '%v' (type %T) but got '%v' (type %T)", tc.output, tc.output, ans, ans)
 			}
-
 		})
 	}
 }
