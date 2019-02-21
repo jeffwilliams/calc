@@ -56,17 +56,28 @@
 
 	// Evaluate the expression for a rule that consists of an operand, operator, 
 	// and expression.
-	func handleBinaryOpExpr(num, op, rest interface{}) (interface{}, error) {
-	  if rest == nil {
-    	return num, nil
-	  }
-  
-  	opStr := string(op.([]uint8))
-		node := &ast.BinaryExpr{Op: opStr, X: num, Y: rest}
-    ast.SetParent(num, node)
-    ast.SetParent(rest, node)
-		return node, nil
-	}	
+	func handleBinaryOpExpr(num, rest interface{}) (interface{}, error) {
+    if rest == nil {
+      return num, nil
+    }
+
+    left := num
+
+    for _, v := range toIfaceSlice(rest) {
+      list := toIfaceSlice(v)
+
+      // In the list item 0 is spaces, 1 is op, 2 is spaces, 3 is operand
+      opStr := string(list[1].([]uint8))
+      right := list[3]
+
+      node := &ast.BinaryExpr{Op: opStr, X: left, Y: right}
+      ast.SetParent(left, node)
+      ast.SetParent(right, node)
+      left = node
+    }
+
+    return left, nil
+	}
 
 	// Evaluate the expression for a rule that consists of an operator and operand.
 	func handleUnaryOpExpr(op interface{}, num interface{}) (interface{}, error) {
@@ -157,46 +168,17 @@ Expr "expression" <- _ n:(Prec3Expr / FuncCallOrParen) _ {
   return n, nil
 }
 
-Prec3Expr "precedence 3 expression" <- n:(Prec3ExprOpt1 / Prec3ExprOpt2) {
-	return n, nil
+Prec3Expr "precedence 3 expression" <- num:Prec2Expr rest:(_ Prec3Op _ Prec2Expr)*  {
+	return handleBinaryOpExpr(num, rest)
 }
 
-Prec3ExprOpt1 "precedence 3 expression opt 1" <- num:Prec2Expr _ op:Prec3Op _ rest:Prec3Expr {
-	return handleBinaryOpExpr(num, op, rest)
+Prec2Expr "precedence 2 expression" <- num:Prec1Expr rest:(_ Prec2Op _ Prec1Expr)*  {
+	return handleBinaryOpExpr(num, rest)
 }
 
-Prec3ExprOpt2 "precedence 3 expression opt 2" <- num:Prec2Expr {
-	return num, nil
+Prec1Expr "precedence 1 expression" <- num:Prec0Expr rest:(_ Prec1Op _ Prec0Expr)*  {
+	return handleBinaryOpExpr(num, rest)
 }
-
-
-Prec2Expr "precedence 2 expression" <- n:(Prec2ExprOpt1 / Prec2ExprOpt2) {
-	return n, nil
-}
-
-Prec2ExprOpt1 "precedence 2 expression opt 1" <- num:Prec1Expr _ op:Prec2Op _ rest:Prec2Expr {
-	return handleBinaryOpExpr(num, op, rest)
-}
-
-Prec2ExprOpt2 "precedence 2 expression opt 2" <- num:Prec1Expr {
-  return num, nil
-}
-
-
-
-Prec1Expr "precedence 1 expression" <- n:(Prec1ExprOpt1 / Prec1ExprOpt2) {
-	return n, nil
-}
-
-Prec1ExprOpt1 "precedence 1 expression opt 1" <- num:Prec0Expr _ op:Prec1Op _ rest:Prec1Expr {
-	return handleBinaryOpExpr(num, op, rest)
-}
-
-Prec1ExprOpt2 "precedence 1 expression opt 2" <- num:Prec0Expr {
-	return num, nil
-}
-
-
 
 
 Prec0Expr "precedence 0 expression" <- num:( UnaryExpr / Prec0OpExpr ) {
@@ -210,18 +192,9 @@ UnaryExpr <- op:[~-] num:FuncCallOrParen {
 	return node, nil
 }
 
-Prec0OpExpr "precedence 0 expression" <- n:(Prec0OpExprOpt1 / Prec0OpExprOpt2) {
-	return n, nil
+Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ FuncCallOrParen)*  {
+	return handleBinaryOpExpr(num, rest)
 }
-
-Prec0OpExprOpt1 "precedence 0 expression opt 1" <- num:FuncCallOrParen _ op:Prec0Op _ rest:Prec0Expr  {
-	return handleBinaryOpExpr(num, op, rest)
-}
-
-Prec0OpExprOpt2 "precedence 0 expression opt 2" <- num:FuncCallOrParen  {
-	return num, nil
-}
-
 
 FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / Lambda / FuncCall / Number / Variable / List ) {
 	return n, nil
