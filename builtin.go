@@ -385,6 +385,11 @@ func init() {
 	RegisterBuiltin("|", or, "return p1 | p2 (bitwise or)")
 	RegisterBuiltin("~", not, "return p1 | p2 (bitwise not)")
 	RegisterBuiltin("neg", neg, "return -p1 ")
+	RegisterBuiltin("<", lt, "return 1 if p1 < p2, or 0 otherwise")
+	RegisterBuiltin(">", gt, "return 1 if p1 > p2, or 0 otherwise")
+	RegisterBuiltin("=", eql, "return 1 if p1 = p2, or 0 otherwise")
+	RegisterBuiltin("<=", lte, "return 1 if p1 <= p2, or 0 otherwise")
+	RegisterBuiltin(">=", gte, "return 1 if p1 >= p2, or 0 otherwise")
 
 	/*** General functions ***/
 	RegisterBuiltin("binom", binom, "binmomial coeffient of (p1, p2)")

@@ -7,14 +7,13 @@ import (
 	"github.com/jeffwilliams/calc/vmimpl"
 )
 
+// NewVM creates and returns a new VM. It constructs the set of builtin functions
+// based on the Funcs array.
 func NewVM() (m *vm.VM, builtinIndexes map[string]int, err error) {
-	builtinDesc := []vm.BuiltinDescr{
-		{"+", Funcs["+"]},
-		{"-", Funcs["-"]},
-		{"*", Funcs["*"]},
-		{"/", Funcs["/"]},
-		{"]", Funcs["]"]},
-		{"li", Funcs["li"]},
+	builtinDesc := []vm.BuiltinDescr{}
+
+	for name, fn := range Funcs {
+		builtinDesc = append(builtinDesc, vm.BuiltinDescr{name, fn})
 	}
 
 	builtinIndexes = map[string]int{}
