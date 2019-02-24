@@ -799,6 +799,14 @@ func TestCalc(t *testing.T) {
 			}
 
 			err = m.Run(finalCode, &vmopts)
+
+			if tc.err {
+				if err == nil {
+					t.Fatalf("expected error but none occurred")
+				}
+				return
+			}
+
 			if err != nil {
 				t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
 			}
@@ -811,10 +819,6 @@ func TestCalc(t *testing.T) {
 
 			if err != nil && !tc.err {
 				t.Fatalf("parsing '%s' failed: %v", tc.input, err)
-			}
-
-			if tc.err && err == nil {
-				t.Fatalf("expected error but none occurred")
 			}
 
 			if !teql(ans, tc.output) {
