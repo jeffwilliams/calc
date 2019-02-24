@@ -517,6 +517,11 @@ func TestCalc(t *testing.T) {
 			output: big.NewInt(-2), // Two's compliment
 		},
 		{
+			name:   "bitwise_not_expr",
+			input:  "~(2-1)",
+			output: big.NewInt(-2), // Two's compliment
+		},
+		{
 			name:   "bitwise_not_and_and",
 			input:  "7 & (~1)",
 			output: big.NewInt(6),

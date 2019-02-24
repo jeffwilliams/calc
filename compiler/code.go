@@ -122,6 +122,8 @@ func (c *compiler) compileNode(node interface{}, depth int) bool {
 		c.compileFuncCall(t)
 	case *ast.BinaryExpr:
 		c.compileBinaryExpr(t)
+	case *ast.UnaryExpr:
+		c.compileUnaryExpr(t)
 	case *ast.Number:
 		c.compileNumber(t)
 	case *ast.FuncDef:
@@ -169,6 +171,27 @@ func (c *compiler) compileBinaryExpr(v *ast.BinaryExpr) {
 
 	code := []vm.Instruction{
 		I("callb", CallBuiltinOperand{Index: ndx, NumParms: 2}),
+	}
+
+	v.SetMeta(code)
+	//instructions = append(instructions, code...)
+}
+
+func (c *compiler) compileUnaryExpr(v *ast.UnaryExpr) {
+
+	op := v.Op
+	if op == "-" {
+		op = "neg"
+	}
+
+	ndx, ok := c.builtinIndexes[op]
+	if !ok {
+		c.compileError = fmt.Errorf("No builtin found for unary operator '%s'", v.Op)
+		return
+	}
+
+	code := []vm.Instruction{
+		I("callb", CallBuiltinOperand{Index: ndx, NumParms: 1}),
 	}
 
 	v.SetMeta(code)
