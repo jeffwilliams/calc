@@ -30,6 +30,10 @@ var optInitFile = flag.StringP("init", "i", "$HOME/.calcrc", "Read the specidied
 
 var completer = readline.NewPrefixCompleter()
 
+const (
+	prompt = "> "
+)
+
 func updateAutocomplete() {
 	var items []readline.PrefixCompleterInterface
 
@@ -119,6 +123,32 @@ func init() {
 	vmimpl.Clone = clone
 }
 
+func showParseError(err error, line string, lineAlreadyDisplayed bool) {
+	if err == nil {
+		return
+	}
+
+	for _, e := range []error(err.(errList)) {
+		if p, ok := e.(*parserError); ok {
+
+			off := p.pos.offset
+			if !lineAlreadyDisplayed {
+				fmt.Fprintf(os.Stderr, "%s\n", line)
+			} else {
+				off += len(prompt)
+			}
+
+			// Print a caret pointing to the failure
+			fmt.Fprintf(os.Stderr, "%s^\n", strings.Repeat(" ", off))
+
+			fmt.Fprintf(os.Stderr, "Error: column %d: %v\n", p.pos.col, p.Inner)
+			return
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "Error: %T\n", err)
+}
+
 func main() {
 	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
 	flag.Parse()
@@ -130,7 +160,7 @@ func main() {
 	}
 
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:       "> ",
+		Prompt:       prompt,
 		AutoComplete: completer,
 	})
 
@@ -168,7 +198,6 @@ func main() {
 
 		if input != "" {
 			line = input
-			input = ""
 		} else {
 			if *optOneLine {
 				break
@@ -190,11 +219,13 @@ func main() {
 		parseOpts := Debug(debugFlags&DbgFlagParse > 0)
 		parsed, err := Parse("last line", []byte(line), parseOpts, Memoize(true))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			showParseError(err, line, input == "")
+			input = ""
 			continue
 		} else {
 			SetGlobal("last", parsed)
 		}
+		input = ""
 
 		if t, ok := parsed.(*ast.Stmts); ok {
 			if debugFlags&DbgFlagAst > 0 {

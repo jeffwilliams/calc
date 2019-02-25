@@ -196,7 +196,7 @@ Prec0OpExpr "precedence 0 expression" <- num:FuncCallOrParen rest:(_ Prec0Op _ F
 	return handleBinaryOpExpr(num, rest)
 }
 
-FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / Lambda / FuncCall / Number / Variable / List ) {
+FuncCallOrParen "function call or expression in parenthesis" <- n:(Paren / Lambda / FuncCall / Number / Variable / List / EmptyList) {
 	return n, nil
 }
 
@@ -251,7 +251,7 @@ Int "int" <- ( ( "0x" [0-9a-zA-Z]+ ) / ( "0b" [01]+ ) / [0-9]+ ) {
   //return i, err
 }
 
-List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
+List "list" <- '[' _ first:(Expr)? rest:((_ ',' _ Expr)*) _ ']' {
 	l := buildSlice(first, rest, 3)
 
 	node := &ast.List{Elements: []ast.Expr{}}
@@ -287,6 +287,11 @@ List "list" <- '[' _ first:(Expr?) rest:((_ ',' _ Expr)*) _ ']' {
 	  return NewBigFloatList(l)
 	}
 */
+}
+
+EmptyList "empty list" <- '[' _ ']' {
+	node := &ast.List{Elements: []ast.Expr{}}
+	return node, nil
 }
 
 //Variable <- id:(Identifier) {

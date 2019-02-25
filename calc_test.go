@@ -755,11 +755,6 @@ func TestCalc(t *testing.T) {
 		},
 	}
 
-	m, builtinIndices, err := NewVM()
-	if err != nil {
-		t.Fatalf("creating vm failed: %v", err)
-	}
-
 	fn0 := func() (*big.Int, error) {
 		return big.NewInt(555), nil
 	}
@@ -773,6 +768,11 @@ func TestCalc(t *testing.T) {
 	RegisterBuiltin("funca", fn0, "")
 	RegisterBuiltin("funcb", fn1, "")
 	RegisterBuiltin("funcc", fn2, "")
+
+	m, builtinIndices, err := NewVM()
+	if err != nil {
+		t.Fatalf("creating vm failed: %v", err)
+	}
 
 	var world *compiler.Compiled
 
@@ -816,11 +816,19 @@ func TestCalc(t *testing.T) {
 				t.Fatalf("execution error: %v\nexecution state at error:\n%v", err, err.(vm.ExecError).Details())
 			}
 
-			if len(m.State().Stack) == 0 {
+			if tc.output == nil {
+				// Testcase expects no output. Don't bother checking stack.
+				return
+			}
+
+			if m.State().Stack.Len() == 0 {
 				t.Fatalf("stack is empty after program")
 			}
 
 			ans := m.State().Stack.Top()
+			if m.State().Stack.Len() > 1 {
+				ans = []interface{}(m.State().Stack)
+			}
 
 			if err != nil && !tc.err {
 				t.Fatalf("parsing '%s' failed: %v", tc.input, err)

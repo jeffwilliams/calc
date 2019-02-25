@@ -6,6 +6,14 @@ func (s *Stack) Top() interface{} {
 	return (*s)[len(*s)-1]
 }
 
+func (s Stack) Empty() bool {
+	return len(s) == 0
+}
+
+func (s Stack) Len() int {
+	return len(s)
+}
+
 func (s *Stack) Pop() (r interface{}) {
 	if len(*s) > 0 {
 		r = (*s)[len(*s)-1]
