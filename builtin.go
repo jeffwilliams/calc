@@ -217,9 +217,9 @@ func listReverse(l interface{}) (l2 interface{}, err error) {
 
 	switch l.(type) {
 	case BigIntList:
-		return listReversebigInt(l)
+		return listReverseBigInt(l)
 	case BigFloatList:
-		return listReversebigFloat(l)
+		return listReverseBigFloat(l)
 	}
 
 	return nil, fmt.Errorf("Unsupported type for parameter 1")
@@ -228,9 +228,9 @@ func listReverse(l interface{}) (l2 interface{}, err error) {
 func listRepeat(e interface{}, n *big.Int) (l interface{}, err error) {
 	switch t := e.(type) {
 	case *big.Int:
-		return listRepeatbigInt(t, n)
+		return listRepeatBigInt(t, n)
 	case *big.Float:
-		return listRepeatbigFloat(t, n)
+		return listRepeatBigFloat(t, n)
 	}
 
 	return nil, fmt.Errorf("Unsupported type for parameter 1")
@@ -251,9 +251,9 @@ func unbytes(l BigIntList) (*big.Int, error) {
 func listMap(l interface{}, fn Func) (interface{}, error) {
 	switch t := l.(type) {
 	case BigIntList:
-		return listMapbigIntList(t, fn)
+		return listMapBigIntList(t, fn)
 	case BigFloatList:
-		return listMapbigFloatList(t, fn)
+		return listMapBigFloatList(t, fn)
 	}
 
 	return nil, fmt.Errorf("Unsupported type for parameter 1")
@@ -266,13 +266,13 @@ func listReduce(l interface{}, fn Func, memo interface{}) (interface{}, error) {
 		if !ok {
 			return nil, fmt.Errorf("Type of initial value does not match type contained in list (list contains ints)")
 		}
-		return listReducebigIntList(t, fn, m)
+		return listReduceBigIntList(t, fn, m)
 	case BigFloatList:
 		m, ok := memo.(*big.Float)
 		if !ok {
 			return nil, fmt.Errorf("Type of initial value does not match type contained in list (list contains floats)")
 		}
-		return listReducebigFloatList(t, fn, m)
+		return listReduceBigFloatList(t, fn, m)
 	}
 
 	return nil, fmt.Errorf("Unsupported type for parameter 1")
@@ -281,9 +281,9 @@ func listReduce(l interface{}, fn Func, memo interface{}) (interface{}, error) {
 func listFilter(l interface{}, fn Func) (interface{}, error) {
 	switch t := l.(type) {
 	case BigIntList:
-		return listFilterbigIntList(t, fn)
+		return listFilterBigIntList(t, fn)
 	case BigFloatList:
-		return listFilterbigFloatList(t, fn)
+		return listFilterBigFloatList(t, fn)
 	}
 
 	return nil, fmt.Errorf("Unsupported type for parameter 1")

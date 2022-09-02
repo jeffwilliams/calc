@@ -105,10 +105,24 @@ func printResult(parsed interface{}) {
 }
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [expression]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.VarP(&outputBase, "obase", "o", "Output number base. One of decimal, hex, integer. May be partial string.")
 	flag.Parse()
 
 	LoadInitScript()
+
+	if flag.NArg() > 0 {
+		parsed, err := Parse("last line", []byte(flag.Arg(0)))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			return
+		}
+		printResult(parsed)
+		return
+	}
 
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:       "> ",
